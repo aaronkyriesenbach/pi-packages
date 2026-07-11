@@ -149,16 +149,18 @@ async function resolvePackageEntry(
 // TUI component for /packages
 // ---------------------------------------------------------------------------
 
+type CloseResult = {
+	settings: Settings;
+	autoUpdateEnabled: boolean;
+};
+
 class PackageListComponent {
 	private packages: Array<PackageInfo & { _persistedEnabled?: boolean }>;
 	private selectedIndex = 0;
 	private settings: Settings;
 	private autoUpdateEnabled: boolean;
 	private theme: Theme;
-	private onClose: (result: {
-		settings: Settings;
-		autoUpdateEnabled: boolean;
-	}) => void;
+	private onClose: (result: CloseResult) => void;
 	private cachedWidth?: number;
 	private cachedLines?: string[];
 
@@ -371,7 +373,9 @@ export default function piExtmgr(pi: ExtensionAPI) {
 			}
 
 			const settings = await readSettings();
+			const settingsBefore = JSON.stringify(settings);
 			const autoUpdateConfig = await readAutoUpdateConfig();
+			const autoUpdateBefore = autoUpdateConfig.enabled;
 			const entries = settings.packages ?? [];
 			const packages: PackageInfo[] = [];
 
@@ -380,6 +384,8 @@ export default function piExtmgr(pi: ExtensionAPI) {
 				if (pkg) packages.push(pkg);
 			}
 
+			let closeResult!: CloseResult;
+
 			await ctx.ui.custom<void>((_tui, theme, _keybindings, done) => {
 				return new PackageListComponent(
 					packages,
@@ -387,15 +393,25 @@ export default function piExtmgr(pi: ExtensionAPI) {
 					autoUpdateConfig.enabled,
 					theme,
 					(result) => {
-						// Persist settings on close (they were saved inline by 'p')
-						writeSettings(result.settings).catch(() => {});
-						// Persist auto-update config
-						autoUpdateConfig.enabled = result.autoUpdateEnabled;
-						writeAutoUpdateConfig(autoUpdateConfig).catch(() => {});
+						closeResult = result;
 						done();
 					},
 				);
 			});
+
+			// Persist settings to disk before reload
+			await writeSettings(closeResult.settings);
+			autoUpdateConfig.enabled = closeResult.autoUpdateEnabled;
+			await writeAutoUpdateConfig(autoUpdateConfig);
+
+			// Hot-reload if anything changed
+			const changed =
+				JSON.stringify(closeResult.settings) !== settingsBefore ||
+				closeResult.autoUpdateEnabled !== autoUpdateBefore;
+			if (changed) {
+				await ctx.reload();
+				return;
+			}
 		},
 	});
 
