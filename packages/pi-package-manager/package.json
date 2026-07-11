@@ -1,0 +1,27 @@
+{
+  "name": "pi-extmgr",
+  "version": "0.1.0",
+  "description": "Pi package manager — list, enable/disable, and auto-update installed Pi packages from within a session",
+  "keywords": ["pi-package", "pi-extension"],
+  "type": "module",
+  "pi": {
+    "extensions": ["./dist/index.js"]
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
