@@ -106,17 +106,19 @@ async function getLatestVersion(pkgName: string): Promise<string | null> {
 
 async function resolvePackageEntry(
 	entry: string | PackageFilter,
-	sessionDisabled: Set<string>,
+	sessionOverrides: Map<string, boolean>,
 ): Promise<PackageInfo | null> {
 	const source = typeof entry === "string" ? entry : entry.source;
 	if (!source.startsWith("npm:")) return null;
 	const name = source.slice(4);
 
 	const pkgJson = await readPackageJson(name);
-	const enabled =
+	const persistedEnabled =
 		typeof entry === "string"
-			? !sessionDisabled.has(source)
-			: isFilterEnabled(entry) && !sessionDisabled.has(source);
+			? true
+			: isFilterEnabled(entry);
+	const sessionOverride = sessionOverrides.get(source);
+	const enabled = sessionOverride !== undefined ? sessionOverride : persistedEnabled;
 
 	const resources =
 		typeof entry === "string"
@@ -159,6 +161,7 @@ class PackageListComponent {
 	private selectedIndex = 0;
 	private settings: Settings;
 	private autoUpdateEnabled: boolean;
+	private sessionOverrides: Map<string, boolean>;
 	private theme: Theme;
 	private onClose: (result: CloseResult) => void;
 	private cachedWidth?: number;
@@ -168,18 +171,17 @@ class PackageListComponent {
 		packages: PackageInfo[],
 		settings: Settings,
 		autoUpdateEnabled: boolean,
+		sessionOverrides: Map<string, boolean>,
 		theme: Theme,
-		onClose: (result: {
-			settings: Settings;
-			autoUpdateEnabled: boolean;
-		}) => void,
+		onClose: (result: CloseResult) => void,
 	) {
 		this.packages = packages.map((p) => ({
 			...p,
-			_persistedEnabled: p.enabled,
+			_persistedEnabled: this.getPersistedEnabled(p.source),
 		}));
 		this.settings = settings;
 		this.autoUpdateEnabled = autoUpdateEnabled;
+		this.sessionOverrides = sessionOverrides;
 		this.theme = theme;
 		this.onClose = onClose;
 	}
@@ -224,6 +226,28 @@ class PackageListComponent {
 			return;
 		}
 
+		if (data === "s") {
+			if (this.packages.length === 0) return;
+			const pkg = this.packages[this.selectedIndex];
+			const source = pkg.source;
+			const currentOverride = this.sessionOverrides.get(source);
+			const persisted = this.getPersistedEnabled(source);
+
+			if (currentOverride !== undefined) {
+				// Remove session override - revert to persisted state
+				this.sessionOverrides.delete(source);
+				pkg.enabled = persisted;
+				pkg._persistedEnabled = persisted;
+			} else {
+				// Add session override - opposite of persisted state
+				this.sessionOverrides.set(source, !persisted);
+				pkg.enabled = !persisted;
+				pkg._persistedEnabled = persisted;
+			}
+			this.invalidate();
+			return;
+		}
+
 		if (data === "p") {
 			this.persistState();
 			this.invalidate();
@@ -237,8 +261,19 @@ class PackageListComponent {
 		}
 	}
 
+	private getPersistedEnabled(source: string): boolean {
+		const entry = (this.settings.packages ?? []).find((e) =>
+			(typeof e === "string" ? e : e.source) === source,
+		);
+		if (!entry) return true;
+		return typeof entry === "string" || !isAllResourcesEmpty(entry);
+	}
+
 	private persistState(): void {
 		for (const pkg of this.packages) {
+			// Session overrides are ephemeral — never persist them to settings
+			if (this.sessionOverrides.has(pkg.source)) continue;
+
 			const currentIdx = (this.settings.packages ?? []).findIndex((entry) =>
 				typeof entry === "string"
 					? entry === pkg.source
@@ -274,11 +309,20 @@ class PackageListComponent {
 		const hasPending =
 			pkg._persistedEnabled !== undefined &&
 			pkg._persistedEnabled !== pkg.enabled;
+		const hasSessionOverride = this.sessionOverrides.has(pkg.source);
 
 		const cursor = isSelected ? th.fg("accent", ">") : " ";
-		const status = pkg.enabled
-			? th.fg("success", "● enabled")
-			: th.fg("dim", "○ disabled");
+
+		let status: string;
+		if (hasSessionOverride) {
+			status = pkg.enabled
+				? th.fg("accent", "● enabled (session)")
+				: th.fg("dim", "○ disabled (session)");
+		} else {
+			status = pkg.enabled
+				? th.fg("success", "● enabled")
+				: th.fg("dim", "○ disabled");
+		}
 		const pending = hasPending ? th.fg("warning", " (unsaved)") : "";
 		const res = [];
 		if (pkg.resources.extensions.length) res.push("ext");
@@ -334,6 +378,7 @@ class PackageListComponent {
 		const keys = [
 			`${th.fg("accent", "↑↓/jk")} navigate`,
 			`${th.fg("accent", "space")} toggle`,
+			`${th.fg("accent", "s")} session`,
 			`${th.fg("accent", "p")} save`,
 			`${th.fg("accent", "u")} auto-update`,
 			`${th.fg("accent", "enter")} close`,
@@ -358,7 +403,7 @@ class PackageListComponent {
 // ---------------------------------------------------------------------------
 
 export default function piExtmgr(pi: ExtensionAPI) {
-	const sessionDisabled = new Set<string>();
+	const sessionOverrides = new Map<string, boolean>();
 
 	// -----------------------------------------------------------------------
 	// Command: /packages
@@ -374,13 +419,14 @@ export default function piExtmgr(pi: ExtensionAPI) {
 
 			const settings = await readSettings();
 			const settingsBefore = JSON.stringify(settings);
+			const sessionOverridesBefore = new Map(sessionOverrides);
 			const autoUpdateConfig = await readAutoUpdateConfig();
 			const autoUpdateBefore = autoUpdateConfig.enabled;
 			const entries = settings.packages ?? [];
 			const packages: PackageInfo[] = [];
 
 			for (const entry of entries) {
-				const pkg = await resolvePackageEntry(entry, sessionDisabled);
+				const pkg = await resolvePackageEntry(entry, sessionOverrides);
 				if (pkg) packages.push(pkg);
 			}
 
@@ -391,6 +437,7 @@ export default function piExtmgr(pi: ExtensionAPI) {
 					packages,
 					settings,
 					autoUpdateConfig.enabled,
+					sessionOverrides,
 					theme,
 					(result) => {
 						closeResult = result;
@@ -404,11 +451,23 @@ export default function piExtmgr(pi: ExtensionAPI) {
 			autoUpdateConfig.enabled = closeResult.autoUpdateEnabled;
 			await writeAutoUpdateConfig(autoUpdateConfig);
 
+			// Persist session overrides so they survive reload
+			const overridesChanged = !mapsEqual(sessionOverrides, sessionOverridesBefore);
+			if (overridesChanged && sessionOverrides.size > 0) {
+				pi.appendEntry(
+					"pi-package-manager-overrides",
+					Object.fromEntries(sessionOverrides),
+				);
+			} else if (overridesChanged && sessionOverrides.size === 0) {
+				// Session overrides were cleared — nuke the entry by writing an empty one
+				pi.appendEntry("pi-package-manager-overrides", {});
+			}
+
 			// Hot-reload if anything changed
-			const changed =
+			const settingsChanged =
 				JSON.stringify(closeResult.settings) !== settingsBefore ||
 				closeResult.autoUpdateEnabled !== autoUpdateBefore;
-			if (changed) {
+			if (settingsChanged || overridesChanged) {
 				await ctx.reload();
 				return;
 			}
@@ -420,6 +479,29 @@ export default function piExtmgr(pi: ExtensionAPI) {
 	// -----------------------------------------------------------------------
 	pi.on("session_start", async (_event, ctx) => {
 		try {
+			// Restore session overrides from previous session entries
+			// (survives /reload since appendEntry persists in the session file)
+			const entries = ctx.sessionManager.getEntries();
+			for (let i = entries.length - 1; i >= 0; i--) {
+				const entry = entries[i];
+				if (
+					entry.type === "custom" &&
+					"customType" in entry &&
+					entry.customType === "pi-package-manager-overrides" &&
+					typeof entry.data === "object" &&
+					entry.data !== null
+				) {
+					for (const [source, enabled] of Object.entries(
+						entry.data as Record<string, unknown>,
+					)) {
+						if (typeof enabled === "boolean") {
+							sessionOverrides.set(source, enabled);
+						}
+					}
+					break; // Use the most recent override entry
+				}
+			}
+
 			const config = await readAutoUpdateConfig();
 			if (!shouldCheckForUpdates(config)) {
 				return;
@@ -506,4 +588,12 @@ function isAllResourcesEmpty(entry: PackageFilter): boolean {
 		entry.prompts?.length === 0 &&
 		entry.themes?.length === 0
 	);
+}
+
+function mapsEqual<K, V>(a: Map<K, V>, b: Map<K, V>): boolean {
+	if (a.size !== b.size) return false;
+	for (const [key, value] of a) {
+		if (!b.has(key) || b.get(key) !== value) return false;
+	}
+	return true;
 }
