@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
+import { matchesKey } from "@earendil-works/pi-tui";
 
 import { isNewerVersion, shouldCheckForUpdates } from "./lib/updates";
 import { resolveDeclared } from "./lib/packages";
@@ -96,10 +96,6 @@ async function getLatestVersion(pkgName: string): Promise<string | null> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Shared package-listing helper (factored from duplicated patterns)
-// ---------------------------------------------------------------------------
-
 async function resolvePackageEntry(
   entry: string | PackageFilter,
   sessionDisabled: Set<string>,
@@ -142,6 +138,194 @@ async function resolvePackageEntry(
 }
 
 // ---------------------------------------------------------------------------
+// TUI component for /packages
+// ---------------------------------------------------------------------------
+
+class PackageListComponent {
+  private packages: Array<PackageInfo & { _persistedEnabled?: boolean }>;
+  private selectedIndex = 0;
+  private settings: Settings;
+  private autoUpdateEnabled: boolean;
+  private theme: Theme;
+  private onClose: (result: { settings: Settings; autoUpdateEnabled: boolean }) => void;
+  private cachedWidth?: number;
+  private cachedLines?: string[];
+
+  constructor(
+    packages: PackageInfo[],
+    settings: Settings,
+    autoUpdateEnabled: boolean,
+    theme: Theme,
+    onClose: (result: { settings: Settings; autoUpdateEnabled: boolean }) => void,
+  ) {
+    this.packages = packages.map((p) => ({
+      ...p,
+      _persistedEnabled: p.enabled,
+    }));
+    this.settings = settings;
+    this.autoUpdateEnabled = autoUpdateEnabled;
+    this.theme = theme;
+    this.onClose = onClose;
+  }
+
+  handleInput(data: string): void {
+    if (matchesKey(data, "escape")) {
+      this.onClose({ settings: this.settings, autoUpdateEnabled: this.autoUpdateEnabled });
+      return;
+    }
+
+    if (matchesKey(data, "enter") || matchesKey(data, "return")) {
+      this.onClose({ settings: this.settings, autoUpdateEnabled: this.autoUpdateEnabled });
+      return;
+    }
+
+    if (matchesKey(data, "j") || matchesKey(data, "down")) {
+      if (this.packages.length === 0) return;
+      this.selectedIndex = (this.selectedIndex + 1) % this.packages.length;
+      this.invalidate();
+      return;
+    }
+
+    if (matchesKey(data, "k") || matchesKey(data, "up")) {
+      if (this.packages.length === 0) return;
+      this.selectedIndex =
+        (this.selectedIndex - 1 + this.packages.length) % this.packages.length;
+      this.invalidate();
+      return;
+    }
+
+    if (data === " ") {
+      if (this.packages.length === 0) return;
+      const pkg = this.packages[this.selectedIndex];
+      pkg.enabled = !pkg.enabled;
+      this.invalidate();
+      return;
+    }
+
+    if (data === "p") {
+      this.persistState();
+      this.invalidate();
+      return;
+    }
+
+    if (data === "u") {
+      this.autoUpdateEnabled = !this.autoUpdateEnabled;
+      this.invalidate();
+      return;
+    }
+  }
+
+  private persistState(): void {
+    for (const pkg of this.packages) {
+      const currentIdx = (this.settings.packages ?? []).findIndex((entry) =>
+        typeof entry === "string"
+          ? entry === pkg.source
+          : entry.source === pkg.source,
+      );
+      if (currentIdx === -1) continue;
+
+      const entry = this.settings.packages![currentIdx];
+      const isCurrentlyEnabled =
+        typeof entry === "string" || !isAllResourcesEmpty(entry);
+
+      if (pkg.enabled && !isCurrentlyEnabled) {
+        this.settings.packages![currentIdx] = pkg.source;
+      } else if (!pkg.enabled && isCurrentlyEnabled) {
+        this.settings.packages![currentIdx] = {
+          source: pkg.source,
+          extensions: [],
+          skills: [],
+          prompts: [],
+          themes: [],
+        };
+      }
+      pkg._persistedEnabled = pkg.enabled;
+    }
+  }
+
+  private rowForPkg(index: number, pkg: PackageInfo & { _persistedEnabled?: boolean }): string {
+    const th = this.theme;
+    const isSelected = index === this.selectedIndex;
+    const hasPending = pkg._persistedEnabled !== undefined &&
+      pkg._persistedEnabled !== pkg.enabled;
+
+    const cursor = isSelected ? th.fg("accent", ">") : " ";
+    const status = pkg.enabled
+      ? th.fg("success", "● enabled")
+      : th.fg("dim", "○ disabled");
+    const pending = hasPending ? th.fg("warning", " (unsaved)") : "";
+    const res = [];
+    if (pkg.resources.extensions.length) res.push("ext");
+    if (pkg.resources.skills.length) res.push("skills");
+    if (pkg.resources.prompts.length) res.push("prompts");
+    if (pkg.resources.themes.length) res.push("themes");
+    const resStr = res.length ? ` ${th.fg("dim", `(${res.join(", ")})`)}` : "";
+
+    const nameLine = `${cursor} ${status} ${th.bold(pkg.name)}${th.fg("dim", `@${pkg.version}`)}${resStr}${pending}`;
+    return nameLine;
+  }
+
+  render(width: number): string[] {
+    if (this.cachedLines && this.cachedWidth === width) {
+      return this.cachedLines;
+    }
+
+    const th = this.theme;
+    const lines: string[] = [];
+
+    // Header
+    lines.push("");
+    const title = th.fg("accent", " Pi Packages ");
+    const headerLine =
+      th.fg("borderMuted", "─".repeat(3)) +
+      title +
+      th.fg("borderMuted", "─".repeat(Math.max(0, width - title.length - 6)));
+    lines.push(headerLine);
+    lines.push("");
+
+    if (this.packages.length === 0) {
+      lines.push(`  ${th.fg("dim", "No packages installed. Use `pi install <pkg>` to add one.")}`);
+    } else {
+      for (let i = 0; i < this.packages.length; i++) {
+        lines.push(`  ${this.rowForPkg(i, this.packages[i])}`);
+      }
+    }
+
+    // Auto-update section
+    lines.push("");
+    lines.push(
+      `  ${
+        this.autoUpdateEnabled
+          ? th.fg("success", "● auto-update on")
+          : th.fg("dim", "○ auto-update off")
+      }`,
+    );
+
+    // Footer
+    lines.push("");
+    const keys = [
+      `${th.fg("accent", "↑↓/jk")} navigate`,
+      `${th.fg("accent", "space")} toggle`,
+      `${th.fg("accent", "p")} save`,
+      `${th.fg("accent", "u")} auto-update`,
+      `${th.fg("accent", "enter")} close`,
+      `${th.fg("accent", "esc")} cancel`,
+    ];
+    lines.push(`  ${keys.join(`  ${th.fg("borderMuted", "│")}  `)}`);
+    lines.push("");
+
+    this.cachedWidth = width;
+    this.cachedLines = lines;
+    return lines;
+  }
+
+  invalidate(): void {
+    this.cachedWidth = undefined;
+    this.cachedLines = undefined;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Extension entry point
 // ---------------------------------------------------------------------------
 
@@ -149,265 +333,60 @@ export default function piExtmgr(pi: ExtensionAPI) {
   const sessionDisabled = new Set<string>();
 
   // -----------------------------------------------------------------------
-  // Tool: pkg_list
+  // Command: /packages
   // -----------------------------------------------------------------------
-  pi.registerTool({
-    name: "pkg_list",
-    label: "List Packages",
-    description:
-      "List all installed Pi packages with their version, enabled/disabled state, and resource types (extensions, skills, prompts, themes).",
-    promptSnippet: "List installed Pi packages and their state",
-    promptGuidelines: [
-      "Use pkg_list to show installed Pi packages when the user asks about their extensions or packages.",
-    ],
-    parameters: Type.Object({
-      filter: Type.Optional(
-        Type.String({
-          description: "Optional filter: 'enabled', 'disabled', or 'all'",
-        }),
-      ),
-    }),
+  pi.registerCommand("packages", {
+    description: "Manage installed Pi packages — enable, disable, and configure auto-update",
+    handler: async (_args, ctx: ExtensionCommandContext) => {
+      if (ctx.mode !== "tui") {
+        ctx.ui.notify("/packages requires interactive mode", "error");
+        return;
+      }
 
-    async execute(_toolCallId, params) {
       const settings = await readSettings();
+      const autoUpdateConfig = await readAutoUpdateConfig();
       const entries = settings.packages ?? [];
-      const result: PackageInfo[] = [];
+      const packages: PackageInfo[] = [];
 
       for (const entry of entries) {
         const pkg = await resolvePackageEntry(entry, sessionDisabled);
-        if (pkg) result.push(pkg);
+        if (pkg) packages.push(pkg);
       }
 
-      let filtered = result;
-      if (params.filter === "enabled")
-        filtered = result.filter((p) => p.enabled);
-      if (params.filter === "disabled")
-        filtered = result.filter((p) => !p.enabled);
-
-      const text = filtered
-        .map((p) => {
-          const status = p.enabled ? "✓ enabled" : "✗ disabled";
-          const resTypes: string[] = [];
-          if (p.resources.extensions.length) resTypes.push("ext");
-          if (p.resources.skills.length) resTypes.push("skills");
-          if (p.resources.prompts.length) resTypes.push("prompts");
-          if (p.resources.themes.length) resTypes.push("themes");
-          const res = resTypes.length ? ` (${resTypes.join(", ")})` : "";
-          return `${status} | ${p.name}@${p.version}${res}`;
-        })
-        .join("\n");
-
-      return {
-        content: [
-          { type: "text", text: text || "No packages installed." },
-        ],
-        details: { packages: filtered },
-      };
-    },
-  });
-
-  // -----------------------------------------------------------------------
-  // Tool: pkg_toggle
-  // -----------------------------------------------------------------------
-  pi.registerTool({
-    name: "pkg_toggle",
-    label: "Toggle Package",
-    description:
-      "Enable or disable an installed Pi package. Can persist across sessions (modifies settings.json) or apply only to the current session.",
-    promptSnippet: "Enable or disable an installed Pi package",
-    promptGuidelines: [
-      "Use pkg_toggle to enable or disable Pi packages when the user asks to manage their packages.",
-      "Set persist: true to make the change permanent across sessions. Set persist: false for a temporary per-session toggle.",
-    ],
-    parameters: Type.Object({
-      package: Type.String({
-        description:
-          "Package source specifier, e.g. 'npm:pi-lens' or the package name 'pi-lens'",
-      }),
-      enabled: Type.Boolean({
-        description: "True to enable, false to disable",
-      }),
-      persist: Type.Optional(
-        Type.Boolean({
-          description:
-            "True to persist in settings.json (survives restarts). False for per-session only. Default: true.",
-        }),
-      ),
-    }),
-
-    async execute(_toolCallId, params) {
-      const persist = params.persist !== false;
-      const source = params.package.startsWith("npm:")
-        ? params.package
-        : `npm:${params.package}`;
-
-      if (persist) {
-        const settings = await readSettings();
-        const currentIdx = (settings.packages ?? []).findIndex((entry) =>
-          typeof entry === "string"
-            ? entry === source
-            : entry.source === source,
-        );
-
-        if (currentIdx === -1) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Package "${params.package}" not found in settings.`,
-              },
-            ],
-            details: {},
-          };
-        }
-
-        const entry = settings.packages![currentIdx];
-        const isCurrentlyEnabled =
-          typeof entry === "string" || !isAllResourcesEmpty(entry);
-
-        if (params.enabled && !isCurrentlyEnabled) {
-          settings.packages![currentIdx] = source;
-          sessionDisabled.delete(source);
-        } else if (!params.enabled && isCurrentlyEnabled) {
-          settings.packages![currentIdx] = {
-            source,
-            extensions: [],
-            skills: [],
-            prompts: [],
-            themes: [],
-          };
-        }
-
-        await writeSettings(settings);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: `${params.package} is now ${params.enabled ? "enabled" : "disabled"} (persistent).`,
+      await ctx.ui.custom<void>(
+        (_tui, theme, _keybindings, done) => {
+          return new PackageListComponent(
+            packages,
+            settings,
+            autoUpdateConfig.enabled,
+            theme,
+            (result) => {
+              // Persist settings on close (they were saved inline by 'p')
+              writeSettings(result.settings).catch(() => {});
+              // Persist auto-update config
+              autoUpdateConfig.enabled = result.autoUpdateEnabled;
+              writeAutoUpdateConfig(autoUpdateConfig).catch(() => {});
+              done();
             },
-          ],
-          details: {},
-        };
-      }
-
-      // Per-session only
-      if (params.enabled) {
-        sessionDisabled.delete(source);
-      } else {
-        sessionDisabled.add(source);
-      }
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: `${params.package} is now ${params.enabled ? "enabled" : "disabled"} (this session only).`,
-          },
-        ],
-        details: {},
-      };
+          );
+        },
+      );
     },
   });
 
   // -----------------------------------------------------------------------
-  // Tool: pkg_check_updates
-  // -----------------------------------------------------------------------
-  pi.registerTool({
-    name: "pkg_check_updates",
-    label: "Check Updates",
-    description:
-      "Check if newer versions of installed Pi packages are available from npm.",
-    promptSnippet: "Check for updates to installed Pi packages",
-    promptGuidelines: [
-      "Use pkg_check_updates to check if any installed Pi packages have updates available.",
-    ],
-    parameters: Type.Object({
-      package: Type.Optional(
-        Type.String({
-          description:
-            "Check a specific package. If omitted, checks all installed packages.",
-        }),
-      ),
-    }),
-
-    async execute(_toolCallId, params) {
-      const settings = await readSettings();
-      const entries = settings.packages ?? [];
-
-      const toCheck = params.package
-        ? entries.filter((e) => {
-            const s = typeof e === "string" ? e : e.source;
-            return s === params.package || s === `npm:${params.package}`;
-          })
-        : entries;
-
-      const updates: Array<{
-        name: string;
-        current: string;
-        latest: string;
-      }> = [];
-      const upToDate: string[] = [];
-      const errors: string[] = [];
-
-      for (const entry of toCheck) {
-        const source = typeof entry === "string" ? entry : entry.source;
-        if (!source.startsWith("npm:")) continue;
-        const name = source.slice(4);
-
-        const pkgJson = await readPackageJson(name);
-        const current = pkgJson?.version;
-        if (!current) {
-          errors.push(`${name}: could not determine current version`);
-          continue;
-        }
-
-        const latest = await getLatestVersion(name);
-        if (!latest) {
-          errors.push(`${name}: could not check npm registry`);
-          continue;
-        }
-
-        if (isNewerVersion(current, latest)) {
-          updates.push({ name, current, latest });
-        } else {
-          upToDate.push(`${name}@${current}`);
-        }
-      }
-
-      const lines: string[] = [];
-      if (updates.length) {
-        lines.push("Updates available:");
-        for (const u of updates) {
-          lines.push(`  ${u.name}: ${u.current} → ${u.latest}`);
-        }
-        lines.push("");
-      }
-      if (upToDate.length) {
-        lines.push(`Up to date: ${upToDate.join(", ")}`);
-        lines.push("");
-      }
-      if (errors.length) {
-        lines.push(`Errors: ${errors.join("; ")}`);
-      }
-      if (!updates.length && !upToDate.length && !errors.length) {
-        lines.push("No packages found.");
-      }
-
-      return {
-        content: [{ type: "text", text: lines.join("\n").trim() }],
-        details: { updates, upToDate, errors },
-      };
-    },
-  });
-
-  // -----------------------------------------------------------------------
-  // session_start: auto-update check
+  // session_start: auto-update
   // -----------------------------------------------------------------------
   pi.on("session_start", async (_event, ctx) => {
     try {
       const config = await readAutoUpdateConfig();
-      if (!shouldCheckForUpdates(config)) return;
+      if (!shouldCheckForUpdates(config)) {
+        return;
+      }
+
+      // Always schedule next check
+      config.nextCheck = Date.now() + config.intervalMs;
+      await writeAutoUpdateConfig(config);
 
       const settings = await readSettings();
       const npmPackages = (settings.packages ?? []).filter((e) => {
@@ -415,11 +394,7 @@ export default function piExtmgr(pi: ExtensionAPI) {
         return s.startsWith("npm:");
       });
 
-      if (npmPackages.length === 0) {
-        config.nextCheck = Date.now() + config.intervalMs;
-        await writeAutoUpdateConfig(config);
-        return;
-      }
+      if (npmPackages.length === 0) return;
 
       const updates: Array<{
         name: string;
@@ -440,23 +415,34 @@ export default function piExtmgr(pi: ExtensionAPI) {
         }
       }
 
-      config.nextCheck = Date.now() + config.intervalMs;
-      await writeAutoUpdateConfig(config);
-
       if (updates.length === 0) return;
 
-      const updateLines = updates
-        .map((u) => `  ${u.name}: ${u.current} → ${u.latest}`)
-        .join("\n");
+      const updateList = updates
+        .map((u) => `${u.name} ${u.current} → ${u.latest}`)
+        .join(", ");
 
       if (ctx.hasUI) {
-        await ctx.ui.notify(
-          `${updates.length} package update(s) available. Run \`pi update --extensions\` to apply.\n${updateLines}`,
+        ctx.ui.notify(
+          `Auto-updating ${updates.length} package(s): ${updateList}`,
           "info",
         );
+
+        // Run pi update
+        try {
+          await execFileAsync("pi", ["update", "--extensions"], {
+            timeout: 120000,
+            env: { ...process.env },
+            cwd: ctx.cwd,
+          });
+          ctx.ui.notify("Packages updated. Restarting Pi…", "info");
+          ctx.shutdown();
+        } catch {
+          // Update may have partially succeeded
+          ctx.ui.notify("Package update failed. Run `pi update --extensions` manually.", "error");
+        }
       }
     } catch {
-      // Silently skip auto-update errors
+      // Silently skip errors
     }
   });
 }
