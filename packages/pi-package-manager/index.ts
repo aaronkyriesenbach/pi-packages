@@ -475,8 +475,8 @@ export default function piExtmgr(pi: ExtensionAPI) {
 						env: { ...process.env },
 						cwd: ctx.cwd,
 					});
-					ctx.ui.notify("Packages updated. Restarting Pi…", "info");
-					ctx.shutdown();
+					ctx.ui.notify("Packages updated. Reloading…", "info");
+					pi.sendUserMessage("/reload");
 				} catch {
 					// Update may have partially succeeded
 					ctx.ui.notify(
