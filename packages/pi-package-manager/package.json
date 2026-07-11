@@ -1,5 +1,5 @@
 {
-  "name": "pi-extmgr",
+  "name": "pi-package-manager",
   "version": "0.1.0",
   "description": "Pi package manager — list, enable/disable, and auto-update installed Pi packages from within a session",
   "keywords": ["pi-package", "pi-extension"],
