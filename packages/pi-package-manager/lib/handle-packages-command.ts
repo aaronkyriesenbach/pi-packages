@@ -1,4 +1,11 @@
-import { readSettings, writeSettings, readAutoUpdateConfig, writeAutoUpdateConfig, readPackageJson, backupOriginalSettings } from "./fs-helpers";
+import {
+	readSettings,
+	writeSettings,
+	readAutoUpdateConfig,
+	writeAutoUpdateConfig,
+	readPackageJson,
+	backupOriginalSettings,
+} from "./fs-helpers";
 import { resolvePackageEntry } from "./resolve-package";
 import { PackageListComponent } from "./package-list";
 import type { CloseResult } from "./package-list";
@@ -90,10 +97,7 @@ export async function handlePackagesCommand(
 	await writeAutoUpdateConfig(autoUpdateConfig);
 
 	// Persist session overrides so they survive reload (for /packages display)
-	const overridesChanged = !mapsEqual(
-		sessionOverrides,
-		sessionOverridesBefore,
-	);
+	const overridesChanged = !mapsEqual(sessionOverrides, sessionOverridesBefore);
 	if (overridesChanged && sessionOverrides.size > 0) {
 		deps.appendEntry(
 			"pi-package-manager-overrides",

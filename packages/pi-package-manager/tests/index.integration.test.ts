@@ -155,18 +155,12 @@ describe("index integration test", () => {
 	});
 
 	it("handles session_shutdown and restores backup settings", async () => {
-		const onHandlers = new Map<
-			string,
-			(event: { reason: string }) => void
-		>();
+		const onHandlers = new Map<string, (event: { reason: string }) => void>();
 		const appendEntry = vi.fn();
 		const fakeApi = {
 			registerCommand: vi.fn(),
 			on: vi.fn(
-				(
-					event: string,
-					handler: (event: { reason: string }) => void,
-				) => {
+				(event: string, handler: (event: { reason: string }) => void) => {
 					onHandlers.set(event, handler);
 				},
 			) as unknown as ExtensionAPI["on"],
@@ -195,18 +189,12 @@ describe("index integration test", () => {
 	});
 
 	it("does not restore backup on session_shutdown with reload reason", async () => {
-		const onHandlers = new Map<
-			string,
-			(event: { reason: string }) => void
-		>();
+		const onHandlers = new Map<string, (event: { reason: string }) => void>();
 		const appendEntry = vi.fn();
 		const fakeApi = {
 			registerCommand: vi.fn(),
 			on: vi.fn(
-				(
-					event: string,
-					handler: (event: { reason: string }) => void,
-				) => {
+				(event: string, handler: (event: { reason: string }) => void) => {
 					onHandlers.set(event, handler);
 				},
 			) as unknown as ExtensionAPI["on"],
