@@ -8,7 +8,9 @@ import type { PackageInfo, Settings, AutoUpdateConfig } from "../lib/types";
 
 const mockReadSettings = vi.hoisted(() => vi.fn<() => Promise<Settings>>());
 const mockWriteSettings = vi.hoisted(() => vi.fn());
-const mockReadAutoUpdateConfig = vi.hoisted(() => vi.fn<() => Promise<AutoUpdateConfig>>());
+const mockReadAutoUpdateConfig = vi.hoisted(() =>
+	vi.fn<() => Promise<AutoUpdateConfig>>(),
+);
 const mockWriteAutoUpdateConfig = vi.hoisted(() => vi.fn());
 const mockReadPackageJson = vi.hoisted(() => vi.fn());
 const mockBackupOriginalSettings = vi.hoisted(() => vi.fn());
@@ -46,10 +48,12 @@ const defaultAutoUpdateConfig: AutoUpdateConfig = {
  * `custom` immediately invokes its callback, allowing tests to control
  * the TUI close result by setting mockPackageListCtor's behavior.
  */
-function makeCtx(overrides: Partial<{
-	mode: string;
-	customResolve: () => void;
-}> = {}) {
+function makeCtx(
+	overrides: Partial<{
+		mode: string;
+		customResolve: () => void;
+	}> = {},
+) {
 	const notify = vi.fn();
 	const reload = vi.fn();
 
@@ -57,13 +61,11 @@ function makeCtx(overrides: Partial<{
 		mode: overrides.mode ?? "tui",
 		ui: {
 			notify,
-			custom: vi.fn(
-				async (fn: (...args: unknown[]) => unknown) => {
-					return new Promise((resolve) => {
-						fn(null, null, null, resolve);
-					});
-				},
-			),
+			custom: vi.fn(async (fn: (...args: unknown[]) => unknown) => {
+				return new Promise((resolve) => {
+					fn(null, null, null, resolve);
+				});
+			}),
 		},
 		reload,
 	};
@@ -85,7 +87,10 @@ describe("handlePackagesCommand", () => {
 				_autoUpdateEnabled: boolean,
 				_overrides: Map<string, boolean>,
 				_theme: unknown,
-				onClose: (result: { settings: Settings; autoUpdateEnabled: boolean }) => void,
+				onClose: (result: {
+					settings: Settings;
+					autoUpdateEnabled: boolean;
+				}) => void,
 			) => {
 				// Default: close with no changes
 				onClose({ settings: {}, autoUpdateEnabled: true });
@@ -127,7 +132,10 @@ describe("handlePackagesCommand", () => {
 				autoUpdateEnabled: boolean,
 				_overrides: Map<string, boolean>,
 				_theme: unknown,
-				onClose: (r: { settings: Settings; autoUpdateEnabled: boolean }) => void,
+				onClose: (r: {
+					settings: Settings;
+					autoUpdateEnabled: boolean;
+				}) => void,
 			) => {
 				onClose({ settings, autoUpdateEnabled });
 				return { buildViewModel: vi.fn(), handleInput: vi.fn() };
@@ -160,9 +168,10 @@ describe("handlePackagesCommand", () => {
 				autoUpdateEnabled: boolean,
 				overrides_: Map<string, boolean>,
 				_theme: unknown,
-				onClose: (
-					r: { settings: Settings; autoUpdateEnabled: boolean },
-				) => void,
+				onClose: (r: {
+					settings: Settings;
+					autoUpdateEnabled: boolean;
+				}) => void,
 			) => {
 				// Simulate user toggling pi-lens off — adds a session override
 				overrides_.set("npm:pi-lens", false);
@@ -199,7 +208,10 @@ describe("handlePackagesCommand", () => {
 				_autoUpdateEnabled: boolean,
 				_overrides: Map<string, boolean>,
 				_theme: unknown,
-				onClose: (r: { settings: Settings; autoUpdateEnabled: boolean }) => void,
+				onClose: (r: {
+					settings: Settings;
+					autoUpdateEnabled: boolean;
+				}) => void,
 			) => {
 				onClose({ settings, autoUpdateEnabled: false });
 				return { buildViewModel: vi.fn(), handleInput: vi.fn() };
@@ -210,7 +222,8 @@ describe("handlePackagesCommand", () => {
 
 		// autoUpdateConfig.enabled should have been written as false
 		expect(mockWriteAutoUpdateConfig).toHaveBeenCalled();
-		const writtenConfig = mockWriteAutoUpdateConfig.mock.calls[0][0] as AutoUpdateConfig;
+		const writtenConfig = mockWriteAutoUpdateConfig.mock
+			.calls[0][0] as AutoUpdateConfig;
 		expect(writtenConfig.enabled).toBe(false);
 		// Reload because auto-update changed
 		expect(deps.reload).toHaveBeenCalled();
@@ -242,7 +255,10 @@ describe("handlePackagesCommand", () => {
 				autoUpdateEnabled: boolean,
 				_overrides: Map<string, boolean>,
 				_theme: unknown,
-				onClose: (r: { settings: Settings; autoUpdateEnabled: boolean }) => void,
+				onClose: (r: {
+					settings: Settings;
+					autoUpdateEnabled: boolean;
+				}) => void,
 			) => {
 				onClose({ settings, autoUpdateEnabled });
 				return { buildViewModel: vi.fn(), handleInput: vi.fn() };
@@ -280,7 +296,10 @@ describe("handlePackagesCommand", () => {
 				autoUpdateEnabled: boolean,
 				_overrides: Map<string, boolean>,
 				_theme: unknown,
-				onClose: (r: { settings: Settings; autoUpdateEnabled: boolean }) => void,
+				onClose: (r: {
+					settings: Settings;
+					autoUpdateEnabled: boolean;
+				}) => void,
 			) => {
 				onClose({ settings, autoUpdateEnabled });
 				return { buildViewModel: vi.fn(), handleInput: vi.fn() };
@@ -325,7 +344,10 @@ describe("handlePackagesCommand", () => {
 				autoUpdateEnabled: boolean,
 				_overrides: Map<string, boolean>,
 				_theme: unknown,
-				onClose: (r: { settings: Settings; autoUpdateEnabled: boolean }) => void,
+				onClose: (r: {
+					settings: Settings;
+					autoUpdateEnabled: boolean;
+				}) => void,
 			) => {
 				capturedPackages.push(...packages);
 				onClose({ settings, autoUpdateEnabled });
