@@ -2,10 +2,15 @@
   "name": "pi-package-manager",
   "version": "0.1.0",
   "description": "Pi package manager — list, enable/disable, and auto-update installed Pi packages from within a session",
-  "keywords": ["pi-package", "pi-extension"],
+  "keywords": [
+    "pi-package",
+    "pi-extension"
+  ],
   "type": "module",
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
@@ -21,6 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
