@@ -135,4 +135,40 @@ describe("getPackagesFromSettings", () => {
 		expect(result[0].resources.extensions).toEqual([]);
 		expect(result[0].resources.skills).toEqual([]);
 	});
+
+	it("rejects PackageFilter entries with non-npm: sources", () => {
+		const filter: PackageFilter = {
+			source: "not-a-valid-prefix/foo",
+			extensions: ["+index.ts"],
+		};
+		const settings: Settings = {
+			packages: [
+				"npm:pi-lens",
+				filter,
+				{
+					source: "/some/local/path",
+					extensions: [],
+					skills: [],
+					prompts: [],
+					themes: [],
+				},
+			],
+		};
+
+		const result = getPackagesFromSettings(settings, getPkgJson);
+
+		expect(result).toHaveLength(1);
+		expect(result[0].source).toBe("npm:pi-lens");
+	});
+
+	it("rejects string entries with non-npm: sources", () => {
+		const settings: Settings = {
+			packages: ["npm:pi-lens", "/some/local/path"],
+		};
+
+		const result = getPackagesFromSettings(settings, getPkgJson);
+
+		expect(result).toHaveLength(1);
+		expect(result[0].source).toBe("npm:pi-lens");
+	});
 });
