@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
+import { readFile, writeFile, rm } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type {
@@ -34,16 +34,15 @@ function npmDir(): string {
 	return join(homedir(), ".pi", "agent", "npm", "node_modules");
 }
 
-function cacheDir(): string {
-	return join(homedir(), ".pi", "agent", ".extmgr-cache");
+function settingsBackupPath(): string {
+	return join(homedir(), ".pi", "agent", "settings-backup.json");
 }
 
-function settingsBackupPath(): string {
-	return join(cacheDir(), "settings-backup.json");
+function autoUpdatePath(): string {
+	return join(homedir(), ".pi", "agent", "auto-update.json");
 }
 
 async function backupOriginalSettings(settings: Settings): Promise<void> {
-	await mkdir(cacheDir(), { recursive: true });
 	await writeFile(
 		settingsBackupPath(),
 		JSON.stringify(settings, null, 2) + "\n",
@@ -96,7 +95,7 @@ async function readAutoUpdateConfig(): Promise<AutoUpdateConfig> {
 		nextCheck: 0,
 	};
 	try {
-		const raw = await readFile(join(cacheDir(), "auto-update.json"), "utf-8");
+		const raw = await readFile(join(autoUpdatePath()), "utf-8");
 		return { ...defaults, ...(JSON.parse(raw) as Partial<AutoUpdateConfig>) };
 	} catch {
 		return defaults;
@@ -104,9 +103,8 @@ async function readAutoUpdateConfig(): Promise<AutoUpdateConfig> {
 }
 
 async function writeAutoUpdateConfig(config: AutoUpdateConfig): Promise<void> {
-	await mkdir(cacheDir(), { recursive: true });
 	await writeFile(
-		join(cacheDir(), "auto-update.json"),
+		autoUpdatePath(),
 		JSON.stringify(config, null, 2) + "\n",
 		"utf-8",
 	);
