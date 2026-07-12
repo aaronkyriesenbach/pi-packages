@@ -9,6 +9,19 @@ import type { PackageFilter, Settings } from "./types";
  *
  * Mutates the settings object in place and returns the new enabled state.
  */
+export function isAllResourcesEmpty(entry: PackageFilter): boolean {
+	return (
+		entry.extensions?.length === 0 &&
+		entry.skills?.length === 0 &&
+		entry.prompts?.length === 0 &&
+		entry.themes?.length === 0
+	);
+}
+
+export function isFilterEnabled(entry: PackageFilter): boolean {
+	return !isAllResourcesEmpty(entry);
+}
+
 export function togglePackage(settings: Settings, source: string): boolean {
 	if (!settings.packages) return false;
 

@@ -1,8 +1,3 @@
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { readFile, writeFile, rm } from "node:fs/promises";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -12,118 +7,24 @@ import { matchesKey } from "@earendil-works/pi-tui";
 
 import { isNewerVersion, shouldCheckForUpdates } from "./lib/updates";
 import { resolveDeclared } from "./lib/packages";
-import type {
-	AutoUpdateConfig,
-	PackageFilter,
-	PackageInfo,
-	PackageJson,
-	Settings,
-} from "./lib/types";
-
-const execFileAsync = promisify(execFile);
-
-// ---------------------------------------------------------------------------
-// Filesystem helpers
-// ---------------------------------------------------------------------------
-
-function settingsPath(): string {
-	return join(homedir(), ".pi", "agent", "settings.json");
-}
-
-function npmDir(): string {
-	return join(homedir(), ".pi", "agent", "npm", "node_modules");
-}
-
-function settingsBackupPath(): string {
-	return join(homedir(), ".pi", "agent", "settings-backup.json");
-}
-
-function autoUpdatePath(): string {
-	return join(homedir(), ".pi", "agent", "auto-update.json");
-}
-
-async function backupOriginalSettings(settings: Settings): Promise<void> {
-	await writeFile(
-		settingsBackupPath(),
-		JSON.stringify(settings, null, 2) + "\n",
-		"utf-8",
-	);
-}
-
-async function restoreOriginalSettings(): Promise<void> {
-	try {
-		const raw = await readFile(settingsBackupPath(), "utf-8");
-		await writeSettings(JSON.parse(raw));
-		await rm(settingsBackupPath());
-	} catch {
-		// No backup or already restored
-	}
-}
-
-async function readSettings(): Promise<Settings> {
-	try {
-		const raw = await readFile(settingsPath(), "utf-8");
-		return JSON.parse(raw) as Settings;
-	} catch {
-		return {};
-	}
-}
-
-async function writeSettings(settings: Settings): Promise<void> {
-	await writeFile(
-		settingsPath(),
-		JSON.stringify(settings, null, 2) + "\n",
-		"utf-8",
-	);
-}
-
-async function readPackageJson(pkgName: string): Promise<PackageJson | null> {
-	const pkgPath = join(npmDir(), pkgName, "package.json");
-	try {
-		const raw = await readFile(pkgPath, "utf-8");
-		return JSON.parse(raw) as PackageJson;
-	} catch {
-		return null;
-	}
-}
-
-async function readAutoUpdateConfig(): Promise<AutoUpdateConfig> {
-	const defaults: AutoUpdateConfig = {
-		intervalMs: 3600000,
-		enabled: true,
-		displayText: "1 hour",
-		nextCheck: 0,
-	};
-	try {
-		const raw = await readFile(join(autoUpdatePath()), "utf-8");
-		return { ...defaults, ...(JSON.parse(raw) as Partial<AutoUpdateConfig>) };
-	} catch {
-		return defaults;
-	}
-}
-
-async function writeAutoUpdateConfig(config: AutoUpdateConfig): Promise<void> {
-	await writeFile(
-		autoUpdatePath(),
-		JSON.stringify(config, null, 2) + "\n",
-		"utf-8",
-	);
-}
-
-async function getLatestVersion(pkgName: string): Promise<string | null> {
-	try {
-		const { stdout } = await execFileAsync(
-			"npm",
-			["view", pkgName, "version"],
-			{
-				timeout: 15000,
-			},
-		);
-		return stdout.trim() || null;
-	} catch {
-		return null;
-	}
-}
+import { mapsEqual, applyOverrides } from "./lib/utils";
+import {
+	isAllResourcesEmpty,
+	isFilterEnabled,
+	togglePackage,
+} from "./lib/settings";
+import {
+	backupOriginalSettings,
+	execFileAsync,
+	getLatestVersion,
+	readAutoUpdateConfig,
+	readPackageJson,
+	readSettings,
+	restoreOriginalSettings,
+	writeAutoUpdateConfig,
+	writeSettings,
+} from "./lib/fs-helpers";
+import type { PackageFilter, PackageInfo, Settings } from "./lib/types";
 
 async function resolvePackageEntry(
 	entry: string | PackageFilter,
@@ -293,16 +194,8 @@ class PackageListComponent {
 			const isCurrentlyEnabled =
 				typeof entry === "string" || !isAllResourcesEmpty(entry);
 
-			if (pkg.enabled && !isCurrentlyEnabled) {
-				this.settings.packages![currentIdx] = pkg.source;
-			} else if (!pkg.enabled && isCurrentlyEnabled) {
-				this.settings.packages![currentIdx] = {
-					source: pkg.source,
-					extensions: [],
-					skills: [],
-					prompts: [],
-					themes: [],
-				};
+			if (isCurrentlyEnabled !== pkg.enabled) {
+				togglePackage(this.settings, pkg.source);
 			}
 			pkg._persistedEnabled = pkg.enabled;
 		}
@@ -611,51 +504,3 @@ export default function piExtmgr(pi: ExtensionAPI) {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function isFilterEnabled(entry: PackageFilter): boolean {
-	return !isAllResourcesEmpty(entry);
-}
-
-function isAllResourcesEmpty(entry: PackageFilter): boolean {
-	return (
-		entry.extensions?.length === 0 &&
-		entry.skills?.length === 0 &&
-		entry.prompts?.length === 0 &&
-		entry.themes?.length === 0
-	);
-}
-
-function mapsEqual<K, V>(a: Map<K, V>, b: Map<K, V>): boolean {
-	if (a.size !== b.size) return false;
-	for (const [key, value] of a) {
-		if (!b.has(key) || b.get(key) !== value) return false;
-	}
-	return true;
-}
-
-/** Apply session overrides on top of persisted settings. */
-function applyOverrides(
-	settings: Settings,
-	overrides: Map<string, boolean>,
-): Settings {
-	if (overrides.size === 0) return settings;
-	const packages = [...(settings.packages ?? [])];
-	for (const [source, enabled] of overrides) {
-		const idx = packages.findIndex(
-			(e) => (typeof e === "string" ? e : e.source) === source,
-		);
-		if (idx === -1) continue;
-		if (enabled) {
-			packages[idx] = source;
-		} else {
-			packages[idx] = {
-				source,
-				extensions: [],
-				skills: [],
-				prompts: [],
-				themes: [],
-			};
-		}
-	}
-	return { ...settings, packages };
-}

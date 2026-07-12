@@ -1,6 +1,63 @@
 import { describe, it, expect } from "vitest";
-import { togglePackage } from "../lib/settings";
-import type { Settings } from "../lib/types";
+import { togglePackage, isAllResourcesEmpty } from "../lib/settings";
+import type { PackageFilter, Settings } from "../lib/types";
+
+describe("isAllResourcesEmpty", () => {
+	it("returns true when all resource arrays are empty", () => {
+		const entry: PackageFilter = {
+			source: "npm:foo",
+			extensions: [],
+			skills: [],
+			prompts: [],
+			themes: [],
+		};
+		expect(isAllResourcesEmpty(entry)).toBe(true);
+	});
+
+	it("returns false when extensions is non-empty", () => {
+		const entry: PackageFilter = {
+			source: "npm:foo",
+			extensions: ["ext"],
+			skills: [],
+			prompts: [],
+			themes: [],
+		};
+		expect(isAllResourcesEmpty(entry)).toBe(false);
+	});
+
+	it("returns false when skills is non-empty", () => {
+		const entry: PackageFilter = {
+			source: "npm:foo",
+			extensions: [],
+			skills: ["skill"],
+			prompts: [],
+			themes: [],
+		};
+		expect(isAllResourcesEmpty(entry)).toBe(false);
+	});
+
+	it("returns false when prompts is non-empty", () => {
+		const entry: PackageFilter = {
+			source: "npm:foo",
+			extensions: [],
+			skills: [],
+			prompts: ["prompt"],
+			themes: [],
+		};
+		expect(isAllResourcesEmpty(entry)).toBe(false);
+	});
+
+	it("returns false when themes is non-empty", () => {
+		const entry: PackageFilter = {
+			source: "npm:foo",
+			extensions: [],
+			skills: [],
+			prompts: [],
+			themes: ["theme"],
+		};
+		expect(isAllResourcesEmpty(entry)).toBe(false);
+	});
+});
 
 describe("togglePackage", () => {
 	it("disables a string-enrty package by converting to empty-filter form", () => {
@@ -82,5 +139,12 @@ describe("togglePackage", () => {
 		// Enable
 		const becameEnabled = togglePackage(settings, "npm:pi-lens");
 		expect(becameEnabled).toBe(true); // now enabled
+	});
+
+	it("returns false when settings.packages is undefined", () => {
+		const settings: Settings = {};
+		const result = togglePackage(settings, "npm:foo");
+		expect(result).toBe(false);
+		expect(settings.packages).toBeUndefined();
 	});
 });
