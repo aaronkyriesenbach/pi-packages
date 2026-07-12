@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type {
@@ -36,6 +36,29 @@ function npmDir(): string {
 
 function cacheDir(): string {
 	return join(homedir(), ".pi", "agent", ".extmgr-cache");
+}
+
+function settingsBackupPath(): string {
+	return join(cacheDir(), "settings-backup.json");
+}
+
+async function backupOriginalSettings(settings: Settings): Promise<void> {
+	await mkdir(cacheDir(), { recursive: true });
+	await writeFile(
+		settingsBackupPath(),
+		JSON.stringify(settings, null, 2) + "\n",
+		"utf-8",
+	);
+}
+
+async function restoreOriginalSettings(): Promise<void> {
+	try {
+		const raw = await readFile(settingsBackupPath(), "utf-8");
+		await writeSettings(JSON.parse(raw));
+		await rm(settingsBackupPath());
+	} catch {
+		// No backup or already restored
+	}
 }
 
 async function readSettings(): Promise<Settings> {
@@ -425,12 +448,17 @@ export default function piExtmgr(pi: ExtensionAPI) {
 				);
 			});
 
-			// Persist settings to disk before reload
-			await writeSettings(closeResult.settings);
+			// Build effective settings: persisted changes + session overrides.
+			// This is what Pi's extension loader sees after reload.
+			const effectiveSettings = applyOverrides(
+				closeResult.settings,
+				sessionOverrides,
+			);
+			await writeSettings(effectiveSettings);
 			autoUpdateConfig.enabled = closeResult.autoUpdateEnabled;
 			await writeAutoUpdateConfig(autoUpdateConfig);
 
-			// Persist session overrides so they survive reload
+			// Persist session overrides so they survive reload (for /packages display)
 			const overridesChanged = !mapsEqual(
 				sessionOverrides,
 				sessionOverridesBefore,
@@ -441,13 +469,23 @@ export default function piExtmgr(pi: ExtensionAPI) {
 					Object.fromEntries(sessionOverrides),
 				);
 			} else if (overridesChanged && sessionOverrides.size === 0) {
-				// Session overrides were cleared — nuke the entry by writing an empty one
 				pi.appendEntry("pi-package-manager-overrides", {});
+			}
+
+			// Backup original settings so we can restore them on session end.
+			// Effective settings may differ from the original because of session
+			// overrides — and we don't want those to persist across Pi restarts.
+			if (overridesChanged || sessionOverrides.size > 0) {
+				try {
+					await backupOriginalSettings(JSON.parse(settingsBefore));
+				} catch {
+					// settingsBefore is always valid JSON (we produced it) — ignore
+				}
 			}
 
 			// Hot-reload if anything changed
 			const settingsChanged =
-				JSON.stringify(closeResult.settings) !== settingsBefore ||
+				JSON.stringify(effectiveSettings) !== settingsBefore ||
 				closeResult.autoUpdateEnabled !== autoUpdateBefore;
 			if (settingsChanged || overridesChanged) {
 				await ctx.reload();
@@ -457,10 +495,27 @@ export default function piExtmgr(pi: ExtensionAPI) {
 	});
 
 	// -----------------------------------------------------------------------
-	// session_start: auto-update
+	// session_shutdown: restore original settings (undo session overrides)
+	// -----------------------------------------------------------------------
+	pi.on("session_shutdown", async (event) => {
+		// Don't restore during reload — the modified settings are needed for
+		// this session. Only restore on actual session end (quit, new, resume, fork).
+		if (event.reason !== "reload") {
+			await restoreOriginalSettings();
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// session_start: crash recovery + auto-update
 	// -----------------------------------------------------------------------
 	pi.on("session_start", async (_event, ctx) => {
 		try {
+			// Crash recovery: if Pi crashed while session overrides were active,
+			// the backup file still exists. Restore original settings on fresh start.
+			if (_event.reason === "startup") {
+				await restoreOriginalSettings();
+			}
+
 			// Restore session overrides from previous session entries
 			// (survives /reload since appendEntry persists in the session file)
 			const entries = ctx.sessionManager.getEntries();
@@ -578,4 +633,31 @@ function mapsEqual<K, V>(a: Map<K, V>, b: Map<K, V>): boolean {
 		if (!b.has(key) || b.get(key) !== value) return false;
 	}
 	return true;
+}
+
+/** Apply session overrides on top of persisted settings. */
+function applyOverrides(
+	settings: Settings,
+	overrides: Map<string, boolean>,
+): Settings {
+	if (overrides.size === 0) return settings;
+	const packages = [...(settings.packages ?? [])];
+	for (const [source, enabled] of overrides) {
+		const idx = packages.findIndex(
+			(e) => (typeof e === "string" ? e : e.source) === source,
+		);
+		if (idx === -1) continue;
+		if (enabled) {
+			packages[idx] = source;
+		} else {
+			packages[idx] = {
+				source,
+				extensions: [],
+				skills: [],
+				prompts: [],
+				themes: [],
+			};
+		}
+	}
+	return { ...settings, packages };
 }
