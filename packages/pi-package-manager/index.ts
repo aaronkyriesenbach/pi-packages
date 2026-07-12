@@ -174,11 +174,11 @@ class PackageListComponent {
 		theme: Theme,
 		onClose: (result: CloseResult) => void,
 	) {
+		this.settings = settings;
 		this.packages = packages.map((p) => ({
 			...p,
 			_persistedEnabled: this.getPersistedEnabled(p.source),
 		}));
-		this.settings = settings;
 		this.autoUpdateEnabled = autoUpdateEnabled;
 		this.sessionOverrides = sessionOverrides;
 		this.theme = theme;
