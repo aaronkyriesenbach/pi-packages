@@ -114,11 +114,10 @@ async function resolvePackageEntry(
 
 	const pkgJson = await readPackageJson(name);
 	const persistedEnabled =
-		typeof entry === "string"
-			? true
-			: isFilterEnabled(entry);
+		typeof entry === "string" ? true : isFilterEnabled(entry);
 	const sessionOverride = sessionOverrides.get(source);
-	const enabled = sessionOverride !== undefined ? sessionOverride : persistedEnabled;
+	const enabled =
+		sessionOverride !== undefined ? sessionOverride : persistedEnabled;
 
 	const resources =
 		typeof entry === "string"
@@ -221,29 +220,20 @@ class PackageListComponent {
 		if (data === " ") {
 			if (this.packages.length === 0) return;
 			const pkg = this.packages[this.selectedIndex];
-			pkg.enabled = !pkg.enabled;
-			this.invalidate();
-			return;
-		}
-
-		if (data === "s") {
-			if (this.packages.length === 0) return;
-			const pkg = this.packages[this.selectedIndex];
 			const source = pkg.source;
-			const currentOverride = this.sessionOverrides.get(source);
 			const persisted = this.getPersistedEnabled(source);
 
-			if (currentOverride !== undefined) {
-				// Remove session override - revert to persisted state
+			// Toggle effective state
+			pkg.enabled = !pkg.enabled;
+
+			// Set or clear session override based on whether new state
+			// differs from what's in settings.json
+			if (pkg.enabled === persisted) {
 				this.sessionOverrides.delete(source);
-				pkg.enabled = persisted;
-				pkg._persistedEnabled = persisted;
 			} else {
-				// Add session override - opposite of persisted state
-				this.sessionOverrides.set(source, !persisted);
-				pkg.enabled = !persisted;
-				pkg._persistedEnabled = persisted;
+				this.sessionOverrides.set(source, pkg.enabled);
 			}
+			pkg._persistedEnabled = persisted;
 			this.invalidate();
 			return;
 		}
@@ -262,8 +252,8 @@ class PackageListComponent {
 	}
 
 	private getPersistedEnabled(source: string): boolean {
-		const entry = (this.settings.packages ?? []).find((e) =>
-			(typeof e === "string" ? e : e.source) === source,
+		const entry = (this.settings.packages ?? []).find(
+			(e) => (typeof e === "string" ? e : e.source) === source,
 		);
 		if (!entry) return true;
 		return typeof entry === "string" || !isAllResourcesEmpty(entry);
@@ -271,9 +261,6 @@ class PackageListComponent {
 
 	private persistState(): void {
 		for (const pkg of this.packages) {
-			// Session overrides are ephemeral — never persist them to settings
-			if (this.sessionOverrides.has(pkg.source)) continue;
-
 			const currentIdx = (this.settings.packages ?? []).findIndex((entry) =>
 				typeof entry === "string"
 					? entry === pkg.source
@@ -298,6 +285,8 @@ class PackageListComponent {
 			}
 			pkg._persistedEnabled = pkg.enabled;
 		}
+		// All overrides are now persisted — clear session state
+		this.sessionOverrides.clear();
 	}
 
 	private rowForPkg(
@@ -309,20 +298,11 @@ class PackageListComponent {
 		const hasPending =
 			pkg._persistedEnabled !== undefined &&
 			pkg._persistedEnabled !== pkg.enabled;
-		const hasSessionOverride = this.sessionOverrides.has(pkg.source);
 
 		const cursor = isSelected ? th.fg("accent", ">") : " ";
-
-		let status: string;
-		if (hasSessionOverride) {
-			status = pkg.enabled
-				? th.fg("accent", "● enabled (session)")
-				: th.fg("dim", "○ disabled (session)");
-		} else {
-			status = pkg.enabled
-				? th.fg("success", "● enabled")
-				: th.fg("dim", "○ disabled");
-		}
+		const status = pkg.enabled
+			? th.fg("success", "● enabled")
+			: th.fg("dim", "○ disabled");
 		const pending = hasPending ? th.fg("warning", " (unsaved)") : "";
 		const res = [];
 		if (pkg.resources.extensions.length) res.push("ext");
@@ -378,7 +358,6 @@ class PackageListComponent {
 		const keys = [
 			`${th.fg("accent", "↑↓/jk")} navigate`,
 			`${th.fg("accent", "space")} toggle`,
-			`${th.fg("accent", "s")} session`,
 			`${th.fg("accent", "p")} save`,
 			`${th.fg("accent", "u")} auto-update`,
 			`${th.fg("accent", "enter")} close`,
@@ -452,7 +431,10 @@ export default function piExtmgr(pi: ExtensionAPI) {
 			await writeAutoUpdateConfig(autoUpdateConfig);
 
 			// Persist session overrides so they survive reload
-			const overridesChanged = !mapsEqual(sessionOverrides, sessionOverridesBefore);
+			const overridesChanged = !mapsEqual(
+				sessionOverrides,
+				sessionOverridesBefore,
+			);
 			if (overridesChanged && sessionOverrides.size > 0) {
 				pi.appendEntry(
 					"pi-package-manager-overrides",
