@@ -86,6 +86,38 @@ export async function handlePackagesCommand(
 		);
 	});
 
+	// If the user cancelled (ESC with unsaved toggles), discard session
+	// overrides made during this TUI interaction — revert to pre-TUI state.
+	if (closeResult.discarded) {
+		sessionOverrides.clear();
+		for (const [k, v] of sessionOverridesBefore) {
+			sessionOverrides.set(k, v);
+		}
+
+		// Auto-update toggle is always persisted even on cancel.
+		autoUpdateConfig.enabled = closeResult.autoUpdateEnabled;
+		await writeAutoUpdateConfig(autoUpdateConfig);
+
+		if (closeResult.autoUpdateEnabled !== autoUpdateBefore) {
+			await deps.reload();
+		}
+		return;
+	}
+
+	// Persist session overrides so they survive reload (for /packages display)
+	const overridesChanged = !mapsEqual(sessionOverrides, sessionOverridesBefore);
+
+	// Backup original settings BEFORE writing effective settings, so a crash
+	// between the write and session_shutdown restore is recoverable on the
+	// next startup (session_start restores from backup).
+	if (overridesChanged || sessionOverrides.size > 0) {
+		try {
+			await backupOriginalSettings(JSON.parse(settingsBefore));
+		} catch {
+			// settingsBefore is always valid JSON (we produced it) — ignore
+		}
+	}
+
 	// Build effective settings: persisted changes + session overrides.
 	// This is what Pi's extension loader sees after reload.
 	const effectiveSettings = applyOverrides(
@@ -96,8 +128,6 @@ export async function handlePackagesCommand(
 	autoUpdateConfig.enabled = closeResult.autoUpdateEnabled;
 	await writeAutoUpdateConfig(autoUpdateConfig);
 
-	// Persist session overrides so they survive reload (for /packages display)
-	const overridesChanged = !mapsEqual(sessionOverrides, sessionOverridesBefore);
 	if (overridesChanged && sessionOverrides.size > 0) {
 		deps.appendEntry(
 			"pi-package-manager-overrides",
@@ -105,17 +135,6 @@ export async function handlePackagesCommand(
 		);
 	} else if (overridesChanged && sessionOverrides.size === 0) {
 		deps.appendEntry("pi-package-manager-overrides", {});
-	}
-
-	// Backup original settings so we can restore them on session end.
-	// Effective settings may differ from the original because of session
-	// overrides — and we don't want those to persist across Pi restarts.
-	if (overridesChanged || sessionOverrides.size > 0) {
-		try {
-			await backupOriginalSettings(JSON.parse(settingsBefore));
-		} catch {
-			// settingsBefore is always valid JSON (we produced it) — ignore
-		}
 	}
 
 	// Hot-reload if anything changed

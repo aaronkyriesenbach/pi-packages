@@ -34,6 +34,8 @@ export interface PackageListViewModel {
 export type CloseResult = {
 	settings: Settings;
 	autoUpdateEnabled: boolean;
+	/** True when the user pressed ESC with unsaved session toggles — discard them. */
+	discarded: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -90,9 +92,15 @@ export class PackageListComponent {
 
 	handleInput(data: string): void {
 		if (matchesKey(data, "escape")) {
+			const hasPending = this.packages.some(
+				(pkg) =>
+					pkg._persistedEnabled !== undefined &&
+					pkg._persistedEnabled !== pkg.enabled,
+			);
 			this.onClose({
 				settings: this.settings,
 				autoUpdateEnabled: this.autoUpdateEnabled,
+				discarded: hasPending,
 			});
 			return;
 		}
@@ -101,6 +109,7 @@ export class PackageListComponent {
 			this.onClose({
 				settings: this.settings,
 				autoUpdateEnabled: this.autoUpdateEnabled,
+				discarded: false,
 			});
 			return;
 		}
@@ -198,7 +207,7 @@ export class PackageListComponent {
 		const status = pkg.enabled
 			? th.fg("success", "● enabled")
 			: th.fg("dim", "○ disabled");
-		const pending = hasPending ? th.fg("warning", " (unsaved)") : "";
+		const pending = hasPending ? th.fg("warning", " (session only)") : "";
 		const res = [];
 		if (pkg.resources.extensions.length) res.push("ext");
 		if (pkg.resources.skills.length) res.push("skills");
@@ -247,6 +256,18 @@ export class PackageListComponent {
 					: th.fg("dim", "○ auto-update off")
 			}`,
 		);
+
+		// Session-only hint
+		const hasPending = this.packages.some(
+			(pkg) =>
+				pkg._persistedEnabled !== undefined &&
+				pkg._persistedEnabled !== pkg.enabled,
+		);
+		if (hasPending) {
+			lines.push(
+				`  ${th.fg("warning", "⚠ Session-only toggles revert when Pi restarts. Press p to save permanently.")}`,
+			);
+		}
 
 		// Footer
 		lines.push("");

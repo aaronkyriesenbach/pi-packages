@@ -194,6 +194,7 @@ describe("handleInput", () => {
 		expect(onClose).toHaveBeenCalledWith({
 			settings,
 			autoUpdateEnabled: true,
+			discarded: false,
 		});
 	});
 
@@ -213,6 +214,11 @@ describe("handleInput", () => {
 		comp.handleInput("\r");
 
 		expect(onClose).toHaveBeenCalledTimes(1);
+		expect(onClose).toHaveBeenCalledWith({
+			settings,
+			autoUpdateEnabled: true,
+			discarded: false,
+		});
 	});
 
 	it("return triggers onClose", () => {
