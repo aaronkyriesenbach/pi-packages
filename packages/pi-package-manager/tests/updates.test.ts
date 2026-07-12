@@ -2,6 +2,34 @@ import { describe, it, expect } from "vitest";
 import { isNewerVersion, shouldCheckForUpdates } from "../lib/updates";
 import type { AutoUpdateConfig } from "../lib/types";
 
+describe("isNewerVersion edge cases", () => {
+	it("handles shorter version strings (< 3 segments)", () => {
+		expect(isNewerVersion("1.2", "1.2.0")).toBe(false);
+	});
+
+	it("release current vs pre-release latest returns false", () => {
+		expect(isNewerVersion("1.0.0", "1.0.0-beta.1")).toBe(false);
+	});
+
+	it("pre-release current vs release latest returns true", () => {
+		expect(isNewerVersion("1.0.0-alpha.1", "1.0.0")).toBe(true);
+	});
+
+	it("pre-release current vs pre-release latest with same segments", () => {
+		expect(isNewerVersion("1.0.0-beta.1", "1.0.0-beta.2")).toBe(false);
+	});
+
+	it("single-segment version string", () => {
+		expect(isNewerVersion("1", "2")).toBe(true);
+		expect(isNewerVersion("2", "1")).toBe(false);
+	});
+
+	it("two-segment version strings", () => {
+		expect(isNewerVersion("1.0", "1.1")).toBe(true);
+		expect(isNewerVersion("1.1", "1.0")).toBe(false);
+	});
+});
+
 describe("isNewerVersion", () => {
 	it("detects a newer version", () => {
 		expect(isNewerVersion("1.0.0", "1.0.1")).toBe(true);
@@ -33,6 +61,18 @@ describe("isNewerVersion", () => {
 
 	it("handles multi-digit version components", () => {
 		expect(isNewerVersion("0.80.5", "0.81.0")).toBe(true);
+	});
+
+	it("shorter version string is equal when padded with zeros", () => {
+		expect(isNewerVersion("1.2", "1.2.0")).toBe(false);
+	});
+
+	it("shorter version string detects a newer version", () => {
+		expect(isNewerVersion("1.2", "1.3.0")).toBe(true);
+	});
+
+	it("release vs pre-release — pre-release is not newer", () => {
+		expect(isNewerVersion("1.0.0", "1.0.0-beta.1")).toBe(false);
 	});
 });
 

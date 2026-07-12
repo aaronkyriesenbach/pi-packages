@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPackagesFromSettings } from "../lib/packages";
+import { getPackagesFromSettings, resolveDeclared } from "../lib/packages";
 import type { PackageJson, PackageFilter, Settings } from "../lib/types";
 
 const piLensPkg: PackageJson = {
@@ -37,6 +37,33 @@ const getPkgJson = (name: string): PackageJson | null => {
 	};
 	return map[name] ?? null;
 };
+
+describe("resolveDeclared", () => {
+	it("exclusion-only filters return declared minus excluded", () => {
+		const result = resolveDeclared(["foo", "bar", "baz"], ["-foo", "-bar"]);
+		expect(result).toEqual(["baz"]);
+	});
+
+	it("plain entries (no prefix) are used directly", () => {
+		const result = resolveDeclared(["a", "b", "c"], ["a"]);
+		expect(result).toEqual(["a"]);
+	});
+
+	it("forced entries (+) take precedence over exclusions", () => {
+		const result = resolveDeclared(["foo", "bar", "baz"], ["+foo", "-bar"]);
+		expect(result).toEqual(["foo"]);
+	});
+
+	it("undefined filter returns declared unchanged", () => {
+		const result = resolveDeclared(["a", "b"], undefined);
+		expect(result).toEqual(["a", "b"]);
+	});
+
+	it("empty filter returns empty array", () => {
+		const result = resolveDeclared(["a", "b"], []);
+		expect(result).toEqual([]);
+	});
+});
 
 describe("getPackagesFromSettings", () => {
 	it("discovers packages from simple string entries", () => {
