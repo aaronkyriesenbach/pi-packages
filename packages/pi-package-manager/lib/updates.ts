@@ -29,8 +29,14 @@ interface ParsedVersion {
 }
 
 function parseVersion(version: string): ParsedVersion {
+	if (!version) {
+		throw new Error(`Invalid version string: "${version}"`);
+	}
 	const [core, ...preParts] = version.split("-");
 	const segments = core.split(".").map(Number);
+	if (segments.some((s) => isNaN(s))) {
+		throw new Error(`Invalid version string: "${version}"`);
+	}
 	return {
 		segments,
 		preRelease: preParts.length > 0 ? preParts.join("-") : undefined,

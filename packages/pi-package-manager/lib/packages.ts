@@ -16,12 +16,18 @@ export function getPackagesFromSettings(
 	const entries = settings.packages ?? [];
 	if (entries.length === 0) return [];
 
-	return entries.map((entry) => {
-		if (typeof entry === "string") {
-			return resolveStringEntry(entry, getPackageJson);
-		}
-		return resolveFilterEntry(entry, getPackageJson);
-	});
+	return entries
+		.filter((entry) => {
+			const source = typeof entry === "string" ? entry : entry.source;
+			if (!source.startsWith("npm:")) return false;
+			return true;
+		})
+		.map((entry) => {
+			if (typeof entry === "string") {
+				return resolveStringEntry(entry, getPackageJson);
+			}
+			return resolveFilterEntry(entry, getPackageJson);
+		});
 }
 
 function resolveStringEntry(

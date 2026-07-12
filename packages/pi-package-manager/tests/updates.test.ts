@@ -106,4 +106,30 @@ describe("shouldCheckForUpdates", () => {
 		};
 		expect(shouldCheckForUpdates(config)).toBe(false);
 	});
+
+	describe("parseVersion validation", () => {
+		it("throws for empty version string", () => {
+			expect(() => isNewerVersion("", "1.0.0")).toThrow(
+				"Invalid version string",
+			);
+		});
+
+		it("throws for non-numeric current version", () => {
+			expect(() => isNewerVersion("not-a-version", "1.0.0")).toThrow(
+				"Invalid version string",
+			);
+		});
+
+		it("throws for non-numeric latest version", () => {
+			expect(() => isNewerVersion("1.0.0", "not-a-version")).toThrow(
+				"Invalid version string",
+			);
+		});
+
+		it("throws for version with non-numeric segment", () => {
+			expect(() => isNewerVersion("1.x.0", "1.0.0")).toThrow(
+				"Invalid version string",
+			);
+		});
+	});
 });
