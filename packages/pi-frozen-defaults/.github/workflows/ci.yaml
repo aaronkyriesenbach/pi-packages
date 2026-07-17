@@ -3,6 +3,14 @@ on:
     branches: ['**']
 
 jobs:
+  # NOTE: release-please's own PR (and its merge, when triggered via the
+  # merge button/API rather than a raw push) is authored by GITHUB_TOKEN,
+  # so GitHub's loop-prevention rule means this workflow never runs on that
+  # PR's branch. That's fine: master has no required-status-check branch
+  # rule, and npm-publish/docker independently re-check
+  # `needs.checks.result == 'success'` against the real merge commit, so a
+  # broken build still can't get published even though the PR itself never
+  # shows a green check.
   checks:
     name: Typecheck, lint, and test
     runs-on: ubuntu-latest
