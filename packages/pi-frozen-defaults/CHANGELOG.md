@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/aaronkyriesenbach/pi-frozen-defaults/compare/pi-frozen-defaults-v0.2.1...pi-frozen-defaults-v0.2.2) (2026-07-17)
+
+
+### Bug Fixes
+
+* align engines.node with the Node version CI actually tests ([1660d05](https://github.com/aaronkyriesenbach/pi-frozen-defaults/commit/1660d0502d413b4a8a69d7bdab13669cc4303554))
+
 ## [0.2.1](https://github.com/aaronkyriesenbach/pi-frozen-defaults/compare/pi-frozen-defaults-v0.2.0...pi-frozen-defaults-v0.2.1) (2026-07-17)
 
 
