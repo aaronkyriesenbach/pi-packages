@@ -50,11 +50,11 @@ Run `/packages` in a session to open the package list:
 ## Development
 
 ```bash
-npm install
-npm run typecheck
-npm run lint
-npm run format:check
-npm run test:coverage
+bun install
+bun run typecheck
+bun run lint
+bun run format:check
+bun run test:coverage
 ```
 
 See [`AGENTS.md`](./AGENTS.md) for the full command reference, project

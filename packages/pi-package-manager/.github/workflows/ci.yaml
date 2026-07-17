@@ -7,7 +7,7 @@ jobs:
   # merge button/API rather than a raw push) is authored by GITHUB_TOKEN,
   # so GitHub's loop-prevention rule means this workflow never runs on that
   # PR's branch. That's fine: master has no required-status-check branch
-  # rule, and npm-publish/docker independently re-check
+  # rule, and bun-publish/docker independently re-check
   # `needs.checks.result == 'success'` against the real merge commit, so a
   # broken build still can't get published even though the PR itself never
   # shows a green check.
@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm run test:coverage
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun run test:coverage
 
   release-please:
     if: github.ref_name == 'master'
@@ -32,13 +32,13 @@ jobs:
       contents: write
       pull-requests: write
 
-  npm-publish:
+  bun-publish:
     needs: [checks, release-please]
     if: >
       always() && needs.checks.result == 'success' &&
       (github.ref_name != 'master' ||
         needs.release-please.outputs.release_created == 'true')
-    uses: aaronkyriesenbach/workflows/.github/workflows/npm-build-push.yaml@master
+    uses: aaronkyriesenbach/workflows/.github/workflows/bun-build-push.yaml@master
     secrets:
       npm-token: ${{ secrets.NPM_TOKEN }}
     permissions:

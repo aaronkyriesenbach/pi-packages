@@ -2,26 +2,26 @@
 
 ### Build
 
-- **Build**: `npm run build` — `tsc --project tsconfig.build.json` → `dist/`
-- **Type-check**: `npm run typecheck` — `tsc --noEmit` (build projects only, broader include)
-- **Lint**: `npm run lint` — `eslint .`
-- **Format**: `npm run format` — `prettier --write .` (check only: `npm run format:check`)
+- **Build**: `bun run build` — `tsc --project tsconfig.build.json` → `dist/`
+- **Type-check**: `bun run typecheck` — `tsc --noEmit` (build projects only, broader include)
+- **Lint**: `bun run lint` — `eslint .`
+- **Format**: `bun run format` — `prettier --write .` (check only: `bun run format:check`)
 
 ### Test
 
-- **All**: `npm test` — `vitest run` (must pass before commits)
-- **Single file**: `npx vitest run tests/packages.test.ts`
-- **Single test**: `npx vitest run -t "test name pattern"`
-- **Watch**: `npm run test:watch` — `vitest` in watch mode
-- **Coverage**: `npm run test:coverage` (enforced at 100% lines/branches/functions/statements)
+- **All**: `bun test` — `vitest run` (must pass before commits)
+- **Single file**: `bunx vitest run tests/packages.test.ts`
+- **Single test**: `bunx vitest run -t "test name pattern"`
+- **Watch**: `bun run test:watch` — `vitest` in watch mode
+- **Coverage**: `bun run test:coverage` (enforced at 100% lines/branches/functions/statements)
 
 ## Stack
 
-- **Runtime**: Bun (primary), Node.js 22 compatible
+- **Runtime**: Bun
 - **Language**: TypeScript 5.7, strict mode, ES2022 target
-- **Package manager**: npm
+- **Package manager**: Bun (`bun.lock`)
 - **Linting**: ESLint 9 (`strict-type-checked` + `stylistic-type-checked`), Prettier 3
-- **Testing**: Vitest 3 with @vitest/coverage-v8
+- **Testing**: Vitest 3 with @vitest/coverage-v8 (runs fine under Bun; kept over `bun:test` since existing suites rely on `vi.mock`/`vi.hoisted`)
 - **Pi peers**: @earendil-works/pi-ai, @earendil-works/pi-coding-agent, @earendil-works/pi-tui, typebox
 
 ## Structure
