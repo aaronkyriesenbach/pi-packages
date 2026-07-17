@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/aaronkyriesenbach/pi-frozen-defaults/compare/pi-frozen-defaults-v0.2.0...pi-frozen-defaults-v0.2.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* exclude generated CHANGELOG.md from prettier ([e07e73f](https://github.com/aaronkyriesenbach/pi-frozen-defaults/commit/e07e73fd7a31bebcec8fea0ed1590e8092f9b3ae))
+
 ## [0.2.0](https://github.com/aaronkyriesenbach/pi-frozen-defaults/compare/pi-frozen-defaults-v0.1.0...pi-frozen-defaults-v0.2.0) (2026-07-17)
 
 
