@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/aaronkyriesenbach/pi-frozen-defaults/compare/pi-frozen-defaults-v0.2.2...pi-frozen-defaults-v0.3.0) (2026-07-17)
+
+
+### Features
+
+* migrate to Bun (runtime, lockfile, CI) ([82f5a5c](https://github.com/aaronkyriesenbach/pi-frozen-defaults/commit/82f5a5c94c42dd7e21d21319c2ab34f54f75d156))
+
 ## [0.2.2](https://github.com/aaronkyriesenbach/pi-frozen-defaults/compare/pi-frozen-defaults-v0.2.1...pi-frozen-defaults-v0.2.2) (2026-07-17)
 
 
