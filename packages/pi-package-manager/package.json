@@ -1,22 +1,49 @@
 {
-  "name": "pi-package-manager",
+  "name": "@aaronkyriesenbach/pi-package-manager",
   "version": "0.1.0",
   "description": "Pi package manager — list, enable/disable, and auto-update installed Pi packages from within a session",
   "keywords": [
     "pi-package",
     "pi-extension"
   ],
+  "license": "MIT",
+  "author": "Aaron Ky-Riesenbach",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/aaronkyriesenbach/pi-package-manager.git"
+  },
+  "homepage": "https://github.com/aaronkyriesenbach/pi-package-manager",
+  "bugs": {
+    "url": "https://github.com/aaronkyriesenbach/pi-package-manager/issues"
+  },
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "index.ts",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
   "pi": {
     "extensions": [
       "./index.ts"
     ]
   },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -25,8 +52,15 @@
     "typebox": "*"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
     "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^9.1.2",
+    "globals": "^17.7.0",
+    "prettier": "^3.9.5",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

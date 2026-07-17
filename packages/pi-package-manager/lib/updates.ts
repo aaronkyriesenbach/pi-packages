@@ -1,46 +1,46 @@
-import type { AutoUpdateConfig } from "./types";
+import type { AutoUpdateConfig } from './types';
 
 /**
  * Compare two semver strings. Returns true if latest > current.
  * Handles pre-release tags by treating them as lower priority.
  */
 export function isNewerVersion(current: string, latest: string): boolean {
-	const curr = parseVersion(current);
-	const lat = parseVersion(latest);
+  const curr = parseVersion(current);
+  const lat = parseVersion(latest);
 
-	// Compare major.minor.patch
-	for (let i = 0; i < 3; i++) {
-		const c = curr.segments[i] ?? 0;
-		const l = lat.segments[i] ?? 0;
-		if (l > c) return true;
-		if (l < c) return false;
-	}
+  // Compare major.minor.patch
+  for (let i = 0; i < 3; i++) {
+    const c = curr.segments[i] ?? 0;
+    const l = lat.segments[i] ?? 0;
+    if (l > c) return true;
+    if (l < c) return false;
+  }
 
-	// Segments equal — pre-release is older than release
-	if (curr.preRelease && !lat.preRelease) return true;
-	if (!curr.preRelease && lat.preRelease) return false;
+  // Segments equal — pre-release is older than release
+  if (curr.preRelease && !lat.preRelease) return true;
+  if (!curr.preRelease && lat.preRelease) return false;
 
-	return false;
+  return false;
 }
 
 interface ParsedVersion {
-	segments: number[];
-	preRelease: string | undefined;
+  segments: number[];
+  preRelease: string | undefined;
 }
 
 function parseVersion(version: string): ParsedVersion {
-	if (!version) {
-		throw new Error(`Invalid version string: "${version}"`);
-	}
-	const [core, ...preParts] = version.split("-");
-	const segments = core.split(".").map(Number);
-	if (segments.some((s) => isNaN(s))) {
-		throw new Error(`Invalid version string: "${version}"`);
-	}
-	return {
-		segments,
-		preRelease: preParts.length > 0 ? preParts.join("-") : undefined,
-	};
+  if (!version) {
+    throw new Error(`Invalid version string: "${version}"`);
+  }
+  const [core, ...preParts] = version.split('-');
+  const segments = core.split('.').map(Number);
+  if (segments.some((s) => isNaN(s))) {
+    throw new Error(`Invalid version string: "${version}"`);
+  }
+  return {
+    segments,
+    preRelease: preParts.length > 0 ? preParts.join('-') : undefined,
+  };
 }
 
 /**
@@ -48,5 +48,5 @@ function parseVersion(version: string): ParsedVersion {
  * nextCheck timestamp.  Returns true when the interval has elapsed.
  */
 export function shouldCheckForUpdates(config: AutoUpdateConfig): boolean {
-	return config.enabled && Date.now() >= config.nextCheck;
+  return config.enabled && Date.now() >= config.nextCheck;
 }
