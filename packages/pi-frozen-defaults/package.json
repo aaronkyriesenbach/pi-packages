@@ -1,0 +1,59 @@
+{
+  "name": "@aaronkyriesenbach/pi-frozen-defaults",
+  "version": "0.1.0",
+  "description": "Pi extension that freezes defaultModel/defaultProvider/defaultThinkingLevel so they only change via a manual settings.json edit, never as a side effect of using pi.",
+  "keywords": [
+    "pi-package",
+    "pi-extension"
+  ],
+  "license": "MIT",
+  "author": "Aaron Ky-Riesenbach",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/aaronkyriesenbach/pi-frozen-defaults.git"
+  },
+  "homepage": "https://github.com/aaronkyriesenbach/pi-frozen-defaults",
+  "bugs": {
+    "url": "https://github.com/aaronkyriesenbach/pi-frozen-defaults/issues"
+  },
+  "type": "module",
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.6",
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.19.0",
+    "@typescript-eslint/parser": "^8.19.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
