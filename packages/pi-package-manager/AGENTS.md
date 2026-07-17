@@ -4,6 +4,8 @@
 
 - **Build**: `npm run build` — `tsc --project tsconfig.build.json` → `dist/`
 - **Type-check**: `npm run typecheck` — `tsc --noEmit` (build projects only, broader include)
+- **Lint**: `npm run lint` — `eslint .`
+- **Format**: `npm run format` — `prettier --write .` (check only: `npm run format:check`)
 
 ### Test
 
@@ -11,13 +13,14 @@
 - **Single file**: `npx vitest run tests/packages.test.ts`
 - **Single test**: `npx vitest run -t "test name pattern"`
 - **Watch**: `npm run test:watch` — `vitest` in watch mode
-- **Coverage**: `npm test -- --coverage` (target: 85%+ lines)
+- **Coverage**: `npm run test:coverage` (enforced at 100% lines/branches/functions/statements)
 
 ## Stack
 
 - **Runtime**: Bun (primary), Node.js 22 compatible
 - **Language**: TypeScript 5.7, strict mode, ES2022 target
 - **Package manager**: npm
+- **Linting**: ESLint 9 (`strict-type-checked` + `stylistic-type-checked`), Prettier 3
 - **Testing**: Vitest 3 with @vitest/coverage-v8
 - **Pi peers**: @earendil-works/pi-ai, @earendil-works/pi-coding-agent, @earendil-works/pi-tui, typebox
 
@@ -68,8 +71,8 @@ async function checkAndRunAutoUpdate(
 ): Promise<boolean> {
   if (!deps.shouldCheckForUpdates(config)) return false;
   const npmPackages = (settings.packages ?? []).filter((e) => {
-    const s = typeof e === "string" ? e : e.source;
-    return s.startsWith("npm:");
+    const s = typeof e === 'string' ? e : e.source;
+    return s.startsWith('npm:');
   });
   if (npmPackages.length === 0) return false;
   // ...
@@ -77,15 +80,15 @@ async function checkAndRunAutoUpdate(
 
 // ❌ Bad — raw Promise chains, inline I/O, implicit deps
 function checkUpdates(config) {
-  return readFile(somePath).then(raw => {
-    return fetch('https://...').then(res => res.json());
+  return readFile(somePath).then((raw) => {
+    return fetch('https://...').then((res) => res.json());
   });
 }
 ```
 
 ### Naming
 
-- Functions / variables: camelCase  |  Types / interfaces: PascalCase  |  Files: kebab-case
+- Functions / variables: camelCase | Types / interfaces: PascalCase | Files: kebab-case
 - Test files: `*.test.ts` in `tests/`
 
 ## Testing
@@ -94,7 +97,7 @@ function checkUpdates(config) {
 - **Location**: `tests/` directory, one file per source module
 - **Test doubles**: `tests/helpers/fake-api.ts` (command deps), `tests/helpers/mocks.ts` (fs mock setup)
 - **Fixtures**: Declared inline in tests, not in separate JSON files
-- **Coverage target**: 85%+ lines (currently 85%)
+- **Coverage target**: 100% lines/branches/functions/statements (enforced in CI via `test:coverage`)
 - New features and bug fixes require tests.
 
 ## Agent skills

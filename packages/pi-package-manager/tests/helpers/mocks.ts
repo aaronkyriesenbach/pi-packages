@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { vi } from 'vitest';
 
 /**
  * Set up filesystem mocks for testing. Must be called at the top level
@@ -7,7 +7,7 @@ import { vi } from "vitest";
  * Returns the mock store so tests can seed fixtures and assert side effects.
  */
 export function createFsMockStore(): Map<string, string> {
-	return new Map<string, string>();
+  return new Map<string, string>();
 }
 
 /**
@@ -15,7 +15,7 @@ export function createFsMockStore(): Map<string, string> {
  * Call at top level in the test file (vi.mock is hoisted).
  */
 export function mockHomedir(tempDir: string): void {
-	vi.mock("node:os", () => ({
-		homedir: () => tempDir,
-	}));
+  vi.mock('node:os', () => ({
+    homedir: (): string => tempDir,
+  }));
 }
