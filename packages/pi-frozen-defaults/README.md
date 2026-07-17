@@ -50,9 +50,9 @@ for why that's an acceptable failure mode for this package.
 ## Development
 
 ```bash
-npm install
-npm run typecheck
-npm run lint
-npm run format:check
-npm test
+bun install
+bun run typecheck
+bun run lint
+bun run format:check
+bun test
 ```
