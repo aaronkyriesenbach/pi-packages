@@ -1,0 +1,38 @@
+on:
+  push:
+    branches: ['**']
+
+jobs:
+  checks:
+    name: Typecheck, lint, and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:coverage
+
+  release-please:
+    if: github.ref_name == 'master'
+    uses: aaronkyriesenbach/workflows/.github/workflows/release-please.yaml@master
+    permissions:
+      contents: write
+      pull-requests: write
+
+  npm-publish:
+    needs: [checks, release-please]
+    if: >
+      always() && needs.checks.result == 'success' &&
+      (github.ref_name != 'master' ||
+        needs.release-please.outputs.release_created == 'true')
+    uses: aaronkyriesenbach/workflows/.github/workflows/npm-build-push.yaml@master
+    secrets:
+      npm-token: ${{ secrets.NPM_TOKEN }}
+    permissions:
+      contents: read
+      id-token: write

@@ -17,6 +17,9 @@
     "url": "https://github.com/aaronkyriesenbach/pi-frozen-defaults/issues"
   },
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "extensions",
     "README.md",
