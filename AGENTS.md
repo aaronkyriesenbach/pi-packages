@@ -10,4 +10,14 @@ Default canonical labels used as-is: `needs-triage`, `needs-info`, `ready-for-ag
 
 ### Domain docs
 
-Single-context layout — root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+Multi-context layout — root `CONTEXT-MAP.md`, one `CONTEXT.md` per package under
+`packages/*`. See `docs/agents/domain.md`.
+
+### Monorepo layout
+
+Bun workspaces (`packages/*`). Root config (TypeScript, ESLint, Prettier,
+`.npmrc`, `LICENSE`, `.gitignore`, `.yamllint`) is shared and strict; each
+package extends it and only adds justified, minimal per-package deltas.
+CI (`ci.yaml`) change-detects which packages' files changed via
+`dorny/paths-filter` and scopes typecheck/lint/test/format checks to those
+packages only.
