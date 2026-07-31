@@ -1,0 +1,43 @@
+on:
+  push:
+    branches: ['**']
+
+jobs:
+  changes:
+    name: Detect changed packages
+    runs-on: ubuntu-latest
+    outputs:
+      pi-frozen-defaults: ${{ steps.filter.outputs.pi-frozen-defaults }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+        # v3.0.3
+        id: filter
+        with:
+          filters: |
+            pi-frozen-defaults:
+              - 'packages/pi-frozen-defaults/**'
+
+  checks:
+    name: Typecheck, lint, and test (${{ matrix.package }})
+    needs: changes
+    if: needs.changes.outputs[matrix.package] == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [pi-frozen-defaults]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+        working-directory: .
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun run test:coverage
