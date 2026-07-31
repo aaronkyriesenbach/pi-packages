@@ -25,13 +25,13 @@ export function isFilterEnabled(entry: PackageFilter): boolean {
 export function togglePackage(settings: Settings, source: string): boolean {
   if (!settings.packages) return false;
 
-  const idx = settings.packages.findIndex((entry) =>
-    typeof entry === 'string' ? entry === source : entry.source === source,
+  const entry = settings.packages.find((e) =>
+    typeof e === 'string' ? e === source : e.source === source,
   );
 
-  if (idx === -1) return false;
+  if (!entry) return false;
 
-  const entry = settings.packages[idx];
+  const idx = settings.packages.indexOf(entry);
 
   if (typeof entry === 'string') {
     // Disable: convert to empty filter

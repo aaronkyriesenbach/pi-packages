@@ -1,31 +1,19 @@
-import js from '@eslint/js';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsParser from '@typescript-eslint/parser';
-import eslintConfigPrettier from 'eslint-config-prettier';
+import baseConfig from '../../eslint.config.js';
 import globals from 'globals';
 
 export default [
-  js.configs.recommended,
+  ...baseConfig,
   {
     files: ['**/*.ts'],
     languageOptions: {
-      parser: tsParser,
       parserOptions: {
         project: './tsconfig.json',
-        sourceType: 'module',
       },
       globals: {
         ...globals.node,
       },
     },
-    plugins: {
-      '@typescript-eslint': tseslint,
-    },
     rules: {
-      ...tseslint.configs['strict-type-checked'].rules,
-      ...tseslint.configs['stylistic-type-checked'].rules,
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/explicit-function-return-type': 'error',
       // Test doubles legitimately need deliberate empty-body stubs (e.g. a
       // no-op `notify`/`sendReload` dependency); allow that instead of
       // reaching for a per-line suppression comment. Mirrors
@@ -39,8 +27,7 @@ export default [
       'no-undef': 'off',
     },
   },
-  eslintConfigPrettier,
   {
-    ignores: ['node_modules/**', 'coverage/**', 'dist/**'],
+    ignores: ['dist/**'],
   },
 ];

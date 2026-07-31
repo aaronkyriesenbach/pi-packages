@@ -32,14 +32,16 @@ function parseVersion(version: string): ParsedVersion {
   if (!version) {
     throw new Error(`Invalid version string: "${version}"`);
   }
-  const [core, ...preParts] = version.split('-');
+  const dashIndex = version.indexOf('-');
+  const core = dashIndex === -1 ? version : version.slice(0, dashIndex);
+  const preRelease = dashIndex === -1 ? undefined : version.slice(dashIndex + 1);
   const segments = core.split('.').map(Number);
   if (segments.some((s) => isNaN(s))) {
     throw new Error(`Invalid version string: "${version}"`);
   }
   return {
     segments,
-    preRelease: preParts.length > 0 ? preParts.join('-') : undefined,
+    preRelease,
   };
 }
 

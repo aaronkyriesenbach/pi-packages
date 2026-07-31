@@ -50,8 +50,8 @@ export class PackageListComponent {
   private sessionOverrides: Map<string, boolean>;
   private theme: Theme;
   private onClose: (result: CloseResult) => void;
-  private cachedWidth?: number;
-  private cachedLines?: string[];
+  private cachedWidth?: number | undefined;
+  private cachedLines?: string[] | undefined;
 
   constructor(
     packages: PackageInfo[],
@@ -127,6 +127,7 @@ export class PackageListComponent {
     if (data === ' ') {
       if (this.packages.length === 0) return;
       const pkg = this.packages[this.selectedIndex];
+      if (!pkg) return;
       const source = pkg.source;
       const persisted = this.getPersistedEnabled(source);
 
@@ -223,9 +224,9 @@ export class PackageListComponent {
     if (this.packages.length === 0) {
       lines.push(`  ${th.fg('dim', 'No packages installed. Use `pi install <pkg>` to add one.')}`);
     } else {
-      for (let i = 0; i < this.packages.length; i++) {
-        lines.push(`  ${this.rowForPkg(i, this.packages[i])}`);
-      }
+      this.packages.forEach((pkg, i) => {
+        lines.push(`  ${this.rowForPkg(i, pkg)}`);
+      });
     }
 
     // Auto-update section

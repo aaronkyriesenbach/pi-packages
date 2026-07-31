@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getPackagesFromSettings, resolveDeclared } from '../lib/packages';
 import type { PackageJson, PackageFilter, Settings } from '../lib/types';
+import { assertDefined } from './helpers/assert-defined';
 
 const piLensPkg: PackageJson = {
   name: 'pi-lens',
@@ -74,14 +75,17 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({
+    const [first, second] = result;
+    assertDefined(first);
+    assertDefined(second);
+    expect(first).toMatchObject({
       name: 'pi-lens',
       source: 'npm:pi-lens',
       version: '3.8.67',
       enabled: true,
     });
-    expect(result[0].resources.extensions).toEqual(['./dist/index.js']);
-    expect(result[1].resources.skills).toEqual(['./skills']);
+    expect(first.resources.extensions).toEqual(['./dist/index.js']);
+    expect(second.resources.skills).toEqual(['./skills']);
   });
 
   it('marks filtered packages as disabled when all resources are filtered out', () => {
@@ -99,8 +103,11 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(2);
-    expect(result[0].enabled).toBe(true);
-    expect(result[1].enabled).toBe(false);
+    const [first, second] = result;
+    assertDefined(first);
+    assertDefined(second);
+    expect(first.enabled).toBe(true);
+    expect(second.enabled).toBe(false);
   });
 
   it('handles packages with selective resource filtering', () => {
@@ -115,8 +122,10 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(1);
-    expect(result[0].enabled).toBe(true);
-    expect(result[0].resources.extensions).toEqual(['index.ts']);
+    const [first] = result;
+    assertDefined(first);
+    expect(first.enabled).toBe(true);
+    expect(first.resources.extensions).toEqual(['index.ts']);
   });
 
   it('returns empty array for empty settings', () => {
@@ -132,8 +141,10 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(1);
-    expect(result[0].resources.extensions).toEqual([]);
-    expect(result[0].resources.skills).toEqual([]);
+    const [first] = result;
+    assertDefined(first);
+    expect(first.resources.extensions).toEqual([]);
+    expect(first.resources.skills).toEqual([]);
   });
 
   it('reports version "unknown" for a string entry with no package.json', () => {
@@ -144,7 +155,9 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(1);
-    expect(result[0].version).toBe('unknown');
+    const [first] = result;
+    assertDefined(first);
+    expect(first.version).toBe('unknown');
   });
 
   it('reports version "unknown" and empty resources for a filter entry with no package.json', () => {
@@ -157,8 +170,10 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(1);
-    expect(result[0].version).toBe('unknown');
-    expect(result[0].resources.skills).toEqual([]);
+    const [first] = result;
+    assertDefined(first);
+    expect(first.version).toBe('unknown');
+    expect(first.resources.skills).toEqual([]);
   });
 
   it('rejects PackageFilter entries with non-npm: sources', () => {
@@ -183,7 +198,9 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(1);
-    expect(result[0].source).toBe('npm:pi-lens');
+    const [first] = result;
+    assertDefined(first);
+    expect(first.source).toBe('npm:pi-lens');
   });
 
   it('rejects string entries with non-npm: sources', () => {
@@ -194,6 +211,8 @@ describe('getPackagesFromSettings', () => {
     const result = getPackagesFromSettings(settings, getPkgJson);
 
     expect(result).toHaveLength(1);
-    expect(result[0].source).toBe('npm:pi-lens');
+    const [first] = result;
+    assertDefined(first);
+    expect(first.source).toBe('npm:pi-lens');
   });
 });

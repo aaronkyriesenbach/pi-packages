@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PackageInfo, Settings, AutoUpdateConfig } from '../lib/types';
+import { assertDefined } from './helpers/assert-defined';
 
 // ---------------------------------------------------------------------------
 // Module-level state for mocks (vi.mock factories are hoisted, so we must
@@ -215,8 +216,9 @@ describe('handlePackagesCommand', () => {
 
     // autoUpdateConfig.enabled should have been written as false
     expect(mockWriteAutoUpdateConfig).toHaveBeenCalled();
-    const writtenConfig = mockWriteAutoUpdateConfig.mock.calls[0][0] as AutoUpdateConfig;
-    expect(writtenConfig.enabled).toBe(false);
+    const writtenConfig = mockWriteAutoUpdateConfig.mock.calls[0];
+    assertDefined(writtenConfig);
+    expect((writtenConfig[0] as AutoUpdateConfig).enabled).toBe(false);
     // Reload because auto-update changed
     expect(deps.reload).toHaveBeenCalled();
   });

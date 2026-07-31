@@ -1,7 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Theme } from '@earendil-works/pi-coding-agent';
 import { PackageListComponent } from '../lib/package-list';
+import type { PackageListViewModel, PackageRowViewModel } from '../lib/package-list';
 import type { PackageInfo, Settings } from '../lib/types';
+import { assertDefined } from './helpers/assert-defined';
+
+function row(vm: PackageListViewModel, index: number): PackageRowViewModel {
+  const item = vm.rows[index];
+  assertDefined(item);
+  return item;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,11 +66,11 @@ describe('buildViewModel', () => {
     );
     const vm = comp.buildViewModel();
     expect(vm.rows).toHaveLength(1);
-    expect(vm.rows[0].name).toBe('pi-lens');
-    expect(vm.rows[0].version).toBe('3.8.67');
-    expect(vm.rows[0].enabled).toBe(true);
-    expect(vm.rows[0].hasPending).toBe(false);
-    expect(vm.rows[0].selected).toBe(true); // first item selected
+    expect(row(vm, 0).name).toBe('pi-lens');
+    expect(row(vm, 0).version).toBe('3.8.67');
+    expect(row(vm, 0).enabled).toBe(true);
+    expect(row(vm, 0).hasPending).toBe(false);
+    expect(row(vm, 0).selected).toBe(true); // first item selected
   });
 
   it('returns a disabled row for a disabled package', () => {
@@ -88,7 +96,7 @@ describe('buildViewModel', () => {
       onClose,
     );
     const vm = comp.buildViewModel();
-    expect(vm.rows[0].enabled).toBe(false);
+    expect(row(vm, 0).enabled).toBe(false);
   });
 
   it('reflects selectedIndex as selection', () => {
@@ -108,13 +116,13 @@ describe('buildViewModel', () => {
     );
 
     // First item selected by default
-    expect(comp.buildViewModel().rows[0].selected).toBe(true);
-    expect(comp.buildViewModel().rows[1].selected).toBe(false);
+    expect(row(comp.buildViewModel(), 0).selected).toBe(true);
+    expect(row(comp.buildViewModel(), 1).selected).toBe(false);
 
     // Navigate down
     comp.handleInput('\x1b[B');
-    expect(comp.buildViewModel().rows[0].selected).toBe(false);
-    expect(comp.buildViewModel().rows[1].selected).toBe(true);
+    expect(row(comp.buildViewModel(), 0).selected).toBe(false);
+    expect(row(comp.buildViewModel(), 1).selected).toBe(true);
   });
 
   it('shows hasPending when toggled without persist', () => {
@@ -133,8 +141,8 @@ describe('buildViewModel', () => {
     // Toggle off
     comp.handleInput(' ');
     const vm = comp.buildViewModel();
-    expect(vm.rows[0].enabled).toBe(false); // toggled off via session override
-    expect(vm.rows[0].hasPending).toBe(true); // differs from persisted
+    expect(row(vm, 0).enabled).toBe(false); // toggled off via session override
+    expect(row(vm, 0).hasPending).toBe(true); // differs from persisted
   });
 
   it('reports autoUpdateEnabled correctly', () => {
@@ -209,11 +217,11 @@ describe('handleInput', () => {
       vi.fn(),
     );
 
-    expect(comp.buildViewModel().rows[0].selected).toBe(true);
+    expect(row(comp.buildViewModel(), 0).selected).toBe(true);
     comp.handleInput('j');
-    expect(comp.buildViewModel().rows[1].selected).toBe(true);
+    expect(row(comp.buildViewModel(), 1).selected).toBe(true);
     comp.handleInput('j');
-    expect(comp.buildViewModel().rows[0].selected).toBe(true); // wraps
+    expect(row(comp.buildViewModel(), 0).selected).toBe(true); // wraps
   });
 
   it('k navigates up and wraps', () => {
@@ -230,9 +238,9 @@ describe('handleInput', () => {
 
     // Start at index 0, navigate up wraps to last
     comp.handleInput('k');
-    expect(comp.buildViewModel().rows[1].selected).toBe(true);
+    expect(row(comp.buildViewModel(), 1).selected).toBe(true);
     comp.handleInput('k');
-    expect(comp.buildViewModel().rows[0].selected).toBe(true); // wraps
+    expect(row(comp.buildViewModel(), 0).selected).toBe(true); // wraps
   });
 
   it('down and up are equivalent to j and k', () => {
@@ -248,9 +256,9 @@ describe('handleInput', () => {
     );
 
     comp.handleInput('\x1b[B');
-    expect(comp.buildViewModel().rows[1].selected).toBe(true);
+    expect(row(comp.buildViewModel(), 1).selected).toBe(true);
     comp.handleInput('\x1b[A');
-    expect(comp.buildViewModel().rows[0].selected).toBe(true);
+    expect(row(comp.buildViewModel(), 0).selected).toBe(true);
   });
 
   it('space toggles enabled state on selected package', () => {
@@ -265,13 +273,13 @@ describe('handleInput', () => {
       vi.fn(),
     );
 
-    expect(comp.buildViewModel().rows[0].enabled).toBe(true);
+    expect(row(comp.buildViewModel(), 0).enabled).toBe(true);
 
     comp.handleInput(' ');
-    expect(comp.buildViewModel().rows[0].enabled).toBe(false);
+    expect(row(comp.buildViewModel(), 0).enabled).toBe(false);
 
     comp.handleInput(' ');
-    expect(comp.buildViewModel().rows[0].enabled).toBe(true);
+    expect(row(comp.buildViewModel(), 0).enabled).toBe(true);
   });
 
   it('space sets session override when new state differs from persisted', () => {
@@ -371,6 +379,29 @@ describe('handleInput', () => {
     comp.handleInput(' ');
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('space is a no-op if selectedIndex is ever out of range (defensive guard)', () => {
+    // selectedIndex can never actually leave [0, packages.length) through the
+    // public API (navigation always wraps via modulo) — this test exercises
+    // that defensive guard directly by forcing an invalid internal state, the
+    // same way an unexpected future bug might.
+    const settings: Settings = { packages: ['npm:pi-lens'] };
+    const overrides = new Map<string, boolean>();
+    const onClose = vi.fn();
+    const comp = new PackageListComponent(
+      [makePackage()],
+      settings,
+      true,
+      overrides,
+      mockTheme,
+      onClose,
+    );
+    (comp as unknown as { selectedIndex: number }).selectedIndex = 5;
+
+    comp.handleInput(' ');
+
+    expect(overrides.size).toBe(0);
   });
 
   it('treats a package absent from settings as persisted-enabled', () => {
