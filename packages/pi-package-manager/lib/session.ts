@@ -19,8 +19,7 @@ export function restoreSessionOverrides(
   overrides: Map<string, boolean>,
 ): void {
   const entries = sessionManager.getEntries();
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
+  for (const entry of [...entries].reverse()) {
     if (
       entry.type === 'custom' &&
       'customType' in entry &&

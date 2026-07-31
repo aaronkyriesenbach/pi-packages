@@ -14,3 +14,6 @@ build-time/tooling concern only, not a domain relationship.
   [`packages/pi-frozen-defaults/CONTEXT.md`](packages/pi-frozen-defaults/CONTEXT.md)
   and
   [`packages/pi-frozen-defaults/docs/adr/`](packages/pi-frozen-defaults/docs/adr/).
+- **`packages/pi-package-manager`** — Pi extension that lists, enables/disables,
+  and auto-updates installed Pi packages from within a session. Has no
+  `CONTEXT.md`/`docs/adr/` of its own yet.

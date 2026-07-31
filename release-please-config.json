@@ -5,6 +5,10 @@
     "packages/pi-frozen-defaults": {
       "release-type": "node",
       "component": "pi-frozen-defaults"
+    },
+    "packages/pi-package-manager": {
+      "release-type": "node",
+      "component": "pi-package-manager"
     }
   }
 }

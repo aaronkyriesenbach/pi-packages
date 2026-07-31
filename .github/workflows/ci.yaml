@@ -17,12 +17,17 @@ jobs:
           filters: |
             pi-frozen-defaults:
               - 'packages/pi-frozen-defaults/**'
+            pi-package-manager:
+              - 'packages/pi-package-manager/**'
       - name: Build changed-packages matrix
         id: set
         run: |
           packages='[]'
           if [ "${{ steps.filter.outputs.pi-frozen-defaults }}" = "true" ]; then
             packages=$(echo "$packages" | jq -c '. + ["pi-frozen-defaults"]')
+          fi
+          if [ "${{ steps.filter.outputs.pi-package-manager }}" = "true" ]; then
+            packages=$(echo "$packages" | jq -c '. + ["pi-package-manager"]')
           fi
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
 
