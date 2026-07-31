@@ -7,7 +7,7 @@ jobs:
     name: Detect changed packages
     runs-on: ubuntu-latest
     outputs:
-      pi-frozen-defaults: ${{ steps.filter.outputs.pi-frozen-defaults }}
+      packages: ${{ steps.set.outputs.packages }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
@@ -17,15 +17,23 @@ jobs:
           filters: |
             pi-frozen-defaults:
               - 'packages/pi-frozen-defaults/**'
+      - name: Build changed-packages matrix
+        id: set
+        run: |
+          packages='[]'
+          if [ "${{ steps.filter.outputs.pi-frozen-defaults }}" = "true" ]; then
+            packages=$(echo "$packages" | jq -c '. + ["pi-frozen-defaults"]')
+          fi
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
 
   checks:
     name: Typecheck, lint, and test (${{ matrix.package }})
     needs: changes
-    if: needs.changes.outputs[matrix.package] == 'true'
+    if: needs.changes.outputs.packages != '[]'
     strategy:
       fail-fast: false
       matrix:
-        package: [pi-frozen-defaults]
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
     runs-on: ubuntu-latest
     defaults:
       run:
