@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-frozen-defaults-v0.3.0...pi-frozen-defaults-v0.4.0) (2026-07-31)
+
+
+### Features
+
+* stand up pi-packages monorepo with pi-frozen-defaults ([9a15c0f](https://github.com/aaronkyriesenbach/pi-packages/commit/9a15c0f82d38466dc8e92a55183c600c1d518040))
+* wire monorepo release-please + publish for pi-frozen-defaults ([724aa33](https://github.com/aaronkyriesenbach/pi-packages/commit/724aa33b9b58aa9e916c10df0bdf9f79686cb913))
+
+
+### Bug Fixes
+
+* gitignore .npmrc so bun-publish auth via setup-bun works ([7cfd4de](https://github.com/aaronkyriesenbach/pi-packages/commit/7cfd4defcae056dc3cc0c07fc8792b49dd868fbb))
+
 ## [0.3.0](https://github.com/aaronkyriesenbach/pi-frozen-defaults/compare/pi-frozen-defaults-v0.2.2...pi-frozen-defaults-v0.3.0) (2026-07-17)
 
 
