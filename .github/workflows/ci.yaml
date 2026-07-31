@@ -49,3 +49,66 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test:coverage
+
+  # NOTE: release-please's own PR (and its merge, when triggered via the
+  # merge button/API rather than a raw push) is authored by GITHUB_TOKEN,
+  # so GitHub's loop-prevention rule means this workflow never runs on that
+  # PR's branch. That's fine: master has no required-status-check branch
+  # rule, and master-release independently re-checks
+  # `needs.checks.result == 'success'` against the real merge commit, so a
+  # broken build still can't get published even though the PR itself never
+  # shows a green check.
+  release-please:
+    name: Release Please
+    if: github.ref_name == 'master'
+    uses: aaronkyriesenbach/workflows/.github/workflows/release-please.yaml@master
+    permissions:
+      contents: write
+      pull-requests: write
+
+  # Runs once per path release-please actually released in this push (i.e.
+  # after a release-please PR is merged to master). Matrixed over
+  # `paths-released` so publishing one package's release can never touch
+  # another package's build/publish path.
+  master-release:
+    name: Publish release (${{ matrix.path }})
+    needs: [checks, release-please]
+    if: >
+      always() && github.ref_name == 'master' &&
+      needs.release-please.outputs.paths-released != '[]' &&
+      needs.checks.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        path: ${{ fromJSON(needs.release-please.outputs.paths-released) }}
+    uses: aaronkyriesenbach/workflows/.github/workflows/bun-build-push.yaml@master
+    with:
+      working-directory: ${{ matrix.path }}
+    secrets:
+      npm-token: ${{ secrets.NPM_TOKEN }}
+    permissions:
+      contents: read
+      id-token: write
+
+  # Non-master pushes touching a package publish a versioned preview build
+  # for that package, scoped by the same change-detection output the
+  # checks job uses so an untouched package is never rebuilt/republished.
+  branch-preview:
+    name: Publish branch preview (${{ matrix.package }})
+    needs: [changes, checks]
+    if: >
+      always() && github.ref_name != 'master' &&
+      needs.changes.outputs.packages != '[]' &&
+      needs.checks.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
+    uses: aaronkyriesenbach/workflows/.github/workflows/bun-build-push.yaml@master
+    with:
+      working-directory: packages/${{ matrix.package }}
+    secrets:
+      npm-token: ${{ secrets.NPM_TOKEN }}
+    permissions:
+      contents: read
+      id-token: write
