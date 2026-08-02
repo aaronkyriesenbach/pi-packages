@@ -9,6 +9,10 @@
     "packages/pi-package-manager": {
       "release-type": "node",
       "component": "pi-package-manager"
+    },
+    "packages/pi-clean-comments": {
+      "release-type": "node",
+      "component": "pi-clean-comments"
     }
   }
 }
