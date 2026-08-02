@@ -9,7 +9,7 @@
 
 ### Test
 
-- **All**: `bun test` — `vitest run` (must pass before commits)
+- **All**: `bun run test` — `vitest run` (must pass before commits)
 - **Single file**: `bunx vitest run tests/packages.test.ts`
 - **Single test**: `bunx vitest run -t "test name pattern"`
 - **Watch**: `bun run test:watch` — `vitest` in watch mode
