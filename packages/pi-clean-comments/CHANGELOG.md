@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.1.0...pi-clean-comments-v0.1.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* recognize .dart and .ps1 in comment-token detection ([893322b](https://github.com/aaronkyriesenbach/pi-packages/commit/893322b504edcf816044340469d134cc444be98d))
+
 ## 0.1.0 (2026-08-02)
 
 
