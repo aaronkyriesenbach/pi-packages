@@ -19,6 +19,8 @@ jobs:
               - 'packages/pi-frozen-defaults/**'
             pi-package-manager:
               - 'packages/pi-package-manager/**'
+            pi-clean-comments:
+              - 'packages/pi-clean-comments/**'
       - name: Build changed-packages matrix
         id: set
         run: |
@@ -28,6 +30,9 @@ jobs:
           fi
           if [ "${{ steps.filter.outputs.pi-package-manager }}" = "true" ]; then
             packages=$(echo "$packages" | jq -c '. + ["pi-package-manager"]')
+          fi
+          if [ "${{ steps.filter.outputs.pi-clean-comments }}" = "true" ]; then
+            packages=$(echo "$packages" | jq -c '. + ["pi-clean-comments"]')
           fi
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
 
