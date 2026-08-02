@@ -16,6 +16,8 @@ describe('getCommentTokens', () => {
     expect(getCommentTokens('foo.ts')).toEqual(['//']);
     expect(getCommentTokens('foo.py')).toEqual(['#']);
     expect(getCommentTokens('foo.php')).toEqual(['//', '#']);
+    expect(getCommentTokens('foo.dart')).toEqual(['//']);
+    expect(getCommentTokens('foo.ps1')).toEqual(['#']);
   });
 
   it('is case-insensitive on the extension', () => {
