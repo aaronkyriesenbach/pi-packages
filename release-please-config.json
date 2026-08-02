@@ -12,7 +12,8 @@
     },
     "packages/pi-clean-comments": {
       "release-type": "node",
-      "component": "pi-clean-comments"
+      "component": "pi-clean-comments",
+      "release-as": "0.1.0"
     }
   }
 }
