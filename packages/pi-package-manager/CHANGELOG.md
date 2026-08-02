@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.3.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.2.0...pi-package-manager-v0.3.0) (2026-08-02)
+
+
+### Features
+
+* add coverage audit ([0c72c55](https://github.com/aaronkyriesenbach/pi-packages/commit/0c72c555277395d19dda895cdbfafdecf7ad92fe))
+* add release-please/npm-publish CI, strict lint, 100% coverage ([5a090b5](https://github.com/aaronkyriesenbach/pi-packages/commit/5a090b57c8b91c254364ca77786a94775d185514))
+* complete test improvements ([2ecf342](https://github.com/aaronkyriesenbach/pi-packages/commit/2ecf342738eb4f96f69def4884c30ddbf94867b9))
+* hot-reload packages on /packages close via ctx.reload() ([bb04833](https://github.com/aaronkyriesenbach/pi-packages/commit/bb048334153b80ae0c5e86e627943c773a53886c))
+* initial commit ([63c7ba5](https://github.com/aaronkyriesenbach/pi-packages/commit/63c7ba5fd14dd0797e2ebe7b518998bb108e4b20))
+* migrate pi-package-manager into the monorepo ([88fbd2a](https://github.com/aaronkyriesenbach/pi-packages/commit/88fbd2a68567bde10469ceb939d09611795bf441))
+* migrate to Bun (runtime, lockfile, CI) ([4b0bf75](https://github.com/aaronkyriesenbach/pi-packages/commit/4b0bf752b00bd8dca071d779c6278f3da134d0b6))
+* per-session package enable/disable via 's' key in /packages ([3708b40](https://github.com/aaronkyriesenbach/pi-packages/commit/3708b40cd8c96855a84498bfc4c0aca2b2139b53))
+* pi-extmgr - Pi package manager extension ([a4dbafe](https://github.com/aaronkyriesenbach/pi-packages/commit/a4dbafeb95d9f43f9f9a28431e3a39f35e444265))
+* switch to bun, rename pi-package-manager ([852d087](https://github.com/aaronkyriesenbach/pi-packages/commit/852d0877c8853b0314220c844a29f41da1aa4abd))
+* T8 — extract /packages command handler + fake API ([ae1709f](https://github.com/aaronkyriesenbach/pi-packages/commit/ae1709f5c6cd7afefcbc61cad0570b4d3c7867e4))
+* T9 — integration test for full extension lifecycle ([f4eabe2](https://github.com/aaronkyriesenbach/pi-packages/commit/f4eabe2427c156836d483dee75aa70b37d8622fe))
+* update agents.md ([44c2d95](https://github.com/aaronkyriesenbach/pi-packages/commit/44c2d956a43eaf014958efb2028ee0733945c534))
+* use /reload instead of shutdown after auto-update ([4925c10](https://github.com/aaronkyriesenbach/pi-packages/commit/4925c10559cc3ae7fd7f26e404803ca7c2719eb5))
+* Wave 1 — fix lib test gaps, deduplicate helpers, extract fs-helpers and utils ([b65857b](https://github.com/aaronkyriesenbach/pi-packages/commit/b65857bfbf647079b91e9d5ae8be93923affb7d4))
+* Wave 2 — extract PackageListComponent, resolvePackageEntry, session handlers ([3cc66b4](https://github.com/aaronkyriesenbach/pi-packages/commit/3cc66b4b0096dc21c05c08f550be52e7cf247a0d))
+
+
+### Bug Fixes
+
+* assign this.settings before getPersistedEnabled in constructor ([baf11f0](https://github.com/aaronkyriesenbach/pi-packages/commit/baf11f00e45a9cfe22839ddb6760d56085d86108))
+* handle session scope properly ([c4cc9a7](https://github.com/aaronkyriesenbach/pi-packages/commit/c4cc9a7e45e7e9f6fd6538151e3701640c93b30d))
+* point extension entry at index.ts instead of dist/index.js ([7e76bf5](https://github.com/aaronkyriesenbach/pi-packages/commit/7e76bf520c9fc5233ba9b4aa1197350178d65735))
+* regenerate package-lock.json from the public registry ([b049ceb](https://github.com/aaronkyriesenbach/pi-packages/commit/b049cebb8b7ce88174e2133ad99aa2127cb67ec7))
+* validate inputs in parseVersion and resolveFilterEntry ([c57230d](https://github.com/aaronkyriesenbach/pi-packages/commit/c57230de9d555f8c7627056b5a8aa1d13a2d2b71))
+* write effective session-override settings to disk before reload ([7f9cd91](https://github.com/aaronkyriesenbach/pi-packages/commit/7f9cd91beae086e5d596a1cfc3d7463e419d57ae))
+
 ## [0.2.0](https://github.com/aaronkyriesenbach/pi-package-manager/compare/pi-package-manager-v0.1.0...pi-package-manager-v0.2.0) (2026-07-17)
 
 
