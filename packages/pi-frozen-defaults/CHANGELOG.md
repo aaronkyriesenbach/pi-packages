@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-frozen-defaults-v0.4.0...pi-frozen-defaults-v0.4.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* correct dev test command from bun test to bun run test:coverage ([198b460](https://github.com/aaronkyriesenbach/pi-packages/commit/198b460d41240a37df30dab8780c658203b4cca5))
+
 ## [0.4.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-frozen-defaults-v0.3.0...pi-frozen-defaults-v0.4.0) (2026-07-31)
 
 
