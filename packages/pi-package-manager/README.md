@@ -59,3 +59,7 @@ bun run test:coverage
 
 See [`AGENTS.md`](./AGENTS.md) for the full command reference, project
 structure, and code style conventions.
+
+## License
+
+MIT

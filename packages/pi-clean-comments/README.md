@@ -37,3 +37,7 @@ bun run lint
 bun run format:check
 bun run test:coverage
 ```
+
+## License
+
+MIT
