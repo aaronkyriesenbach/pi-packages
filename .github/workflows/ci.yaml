@@ -36,7 +36,6 @@ jobs:
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
 
   checks:
-    name: Typecheck, lint, and test (${{ matrix.package }})
     needs: changes
     if: needs.changes.outputs.packages != '[]'
     strategy:
@@ -80,7 +79,6 @@ jobs:
   # `paths-released` so publishing one package's release can never touch
   # another package's build/publish path.
   master-release:
-    name: Publish release (${{ matrix.path }})
     needs: [checks, release-please]
     if: >
       always() && github.ref_name == 'master' &&
@@ -103,7 +101,6 @@ jobs:
   # for that package, scoped by the same change-detection output the
   # checks job uses so an untouched package is never rebuilt/republished.
   branch-preview:
-    name: Publish branch preview (${{ matrix.package }})
     needs: [changes, checks]
     if: >
       always() && github.ref_name != 'master' &&
