@@ -13,6 +13,10 @@
     "packages/pi-clean-comments": {
       "release-type": "node",
       "component": "pi-clean-comments"
+    },
+    "packages/pi-substitute-commands": {
+      "release-type": "node",
+      "component": "pi-substitute-commands"
     }
   }
 }
