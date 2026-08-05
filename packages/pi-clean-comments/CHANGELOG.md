@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.1.1...pi-clean-comments-v0.2.0) (2026-08-05)
+
+
+### Features
+
+* lower coverage threshold, remove junk tests ([52513b8](https://github.com/aaronkyriesenbach/pi-packages/commit/52513b866f7f5262a7c8baacaaf823725000707c))
+
 ## [0.1.1](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.1.0...pi-clean-comments-v0.1.1) (2026-08-02)
 
 

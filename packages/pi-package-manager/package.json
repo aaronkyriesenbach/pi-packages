@@ -1,6 +1,6 @@
 {
   "name": "@aaronkyriesenbach/pi-package-manager",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Pi package manager — list, enable/disable, and auto-update installed Pi packages from within a session",
   "keywords": [
     "pi-package",
