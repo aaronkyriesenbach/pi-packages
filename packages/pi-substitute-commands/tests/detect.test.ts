@@ -108,6 +108,10 @@ describe('findBlockableInvocations', () => {
     expect(findBlockableInvocations('(echo hi)')).toEqual([]);
   });
 
+  it('does not recurse into unsupported compound structures (e.g. an if clause)', () => {
+    expect(findBlockableInvocations('if true; then grep foo .; fi')).toEqual([]);
+  });
+
   it('does not block find/grep appearing only as an argument', () => {
     expect(findBlockableInvocations('echo "don\'t grep for this"')).toEqual([]);
     expect(findBlockableInvocations('echo find')).toEqual([]);
@@ -123,6 +127,70 @@ describe('findBlockableInvocations', () => {
 
   it('fails open (returns an empty array) when unbash reports a parse error', () => {
     expect(findBlockableInvocations('find . -name "unterminated')).toEqual([]);
+  });
+});
+
+describe('findBlockableInvocations: recursing into substitutions and subshells', () => {
+  it('blocks a disallowed command inside a $(...) command substitution', () => {
+    expect(findBlockableInvocations("rm $(find . -name '*.tmp')")).toEqual([
+      { command: 'find', replacement: 'fd' },
+    ]);
+  });
+
+  it('blocks a disallowed command inside a backtick command substitution', () => {
+    expect(findBlockableInvocations('echo `grep foo bar`')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('blocks a disallowed command inside a subshell', () => {
+    expect(findBlockableInvocations('(cd src && grep foo *.ts)')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('blocks a disallowed command inside a double-quoted command substitution', () => {
+    expect(findBlockableInvocations('echo "$(grep foo bar)"')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('reports one deduped finding for a command blocked both at the top level and nested in a substitution', () => {
+    expect(findBlockableInvocations('grep foo .; echo $(grep bar .)')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('reports one deduped finding for a command blocked both at the top level and nested in a subshell', () => {
+    expect(findBlockableInvocations('grep foo .; (grep bar .)')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('never blocks git grep nested inside a command substitution', () => {
+    expect(findBlockableInvocations('echo $(git grep foo)')).toEqual([]);
+  });
+
+  it('never blocks git grep nested inside a subshell', () => {
+    expect(findBlockableInvocations('(git grep foo)')).toEqual([]);
+  });
+
+  it('recurses into a subshell nested inside a command substitution', () => {
+    expect(findBlockableInvocations('echo $( (grep foo bar) )')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('recurses into a command substitution appearing as an argument to a wrapper', () => {
+    expect(findBlockableInvocations('sudo echo $(grep foo bar)')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('fails open locally for a nested command substitution that fails to parse, keeping other findings', () => {
+    expect(findBlockableInvocations('grep foo .; echo $(if [ 1 ]; then echo hi)')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
   });
 });
 

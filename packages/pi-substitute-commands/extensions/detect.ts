@@ -1,5 +1,5 @@
 import { parse } from 'unbash';
-import type { Command, Node, Word } from 'unbash';
+import type { Command, Node, ParseError, Script, Word, WordPart } from 'unbash';
 import { EXEC_TERMINATORS, WRAPPER_SPECS, type WrapperSpec } from './wrapper-specs.js';
 
 /**
@@ -170,6 +170,8 @@ function checkInvocation(name: string, words: readonly Word[], found: Map<string
 
   const wrapper = WRAPPER_SPECS[name];
   if (wrapper !== undefined) handleWrapper(wrapper, words, found);
+
+  walkWordsForSubstitutions(words, found);
 }
 
 function checkCommand(command: Command, found: Map<string, string>): void {
@@ -180,12 +182,57 @@ function checkCommand(command: Command, found: Map<string, string>): void {
 }
 
 /**
+ * Recurses into every Command Substitution (`$(...)` and backtick form —
+ * `unbash` normalizes both into the same `CommandExpansion` word part)
+ * embedded anywhere in `words`, walking each substitution's already-parsed
+ * sub-script from Command Position outward. A sub-script that failed to
+ * parse cleanly contributes nothing, mirroring `walkScriptSource`'s local
+ * fail-open behavior, without discarding findings recorded elsewhere.
+ *
+ * Command Substitutions nested inside a double-quoted word (`"$(...)"`)
+ * are reached too, since `DoubleQuotedPart.parts` shares `CommandExpansion`
+ * as a member of its own part union.
+ *
+ * Called from `checkInvocation` for every word list it resolves — top-level
+ * Command suffixes and Wrapper Unwrapping's resolved sub-command words
+ * alike — so recursion composes with wrapper unwrapping without extra
+ * plumbing.
+ */
+function walkWordsForSubstitutions(words: readonly Word[], found: Map<string, string>): void {
+  for (const word of words) walkWordParts(word.parts, found);
+}
+
+function walkWordParts(parts: readonly WordPart[] | undefined, found: Map<string, string>): void {
+  if (!parts) return;
+  for (const part of parts) {
+    if (part.type === 'CommandExpansion') {
+      const script = part.script;
+      if (script === undefined || hasParseErrors(script)) continue;
+      for (const statement of script.commands) walk(statement, found);
+    } else if (part.type === 'DoubleQuoted') {
+      walkWordParts(part.parts, found);
+    }
+  }
+}
+
+/**
+ * `unbash`'s `Script` interface omits the `errors` field that `parse()`
+ * (and, internally, every substitution's already-resolved `.script`) always
+ * populates on its return value — a declared-type gap, not a runtime one.
+ */
+function hasParseErrors(script: Script): boolean {
+  const errors = (script as Script & { errors?: ParseError[] }).errors;
+  return errors !== undefined && errors.length > 0;
+}
+
+/**
  * Walks Command Position for the chaining forms this ticket covers
- * (`;`, `&&`, `||`, `|`, and bare statements). Deliberately does not recurse
- * into command substitutions, subshells, or other compound structures —
- * those are later tickets' scope. Wrapper Unwrapping (`sudo`, `xargs`,
- * `bash -c`, `find -exec`, etc.) is handled separately, from Command
- * Position outward, once a Command node is reached.
+ * (`;`, `&&`, `||`, `|`, and bare statements), subshells (`(...)`), and
+ * Command Substitutions embedded in any word encountered along the way
+ * (via `walkWordsForSubstitutions`, from `checkInvocation`). Wrapper
+ * Unwrapping (`sudo`, `xargs`, `bash -c`, `find -exec`, etc.) is handled
+ * separately, from Command Position outward, once a Command node is
+ * reached.
  */
 function walk(node: Node, found: Map<string, string>): void {
   switch (node.type) {
@@ -195,6 +242,9 @@ function walk(node: Node, found: Map<string, string>): void {
     case 'Pipeline':
     case 'AndOr':
       for (const child of node.commands) walk(child, found);
+      return;
+    case 'Subshell':
+      for (const statement of node.body.commands) walk(statement, found);
       return;
     case 'Command':
       checkCommand(node, found);
