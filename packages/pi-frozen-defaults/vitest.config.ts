@@ -1,19 +1,15 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import baseConfig from '../../vitest.config.base.js';
 
-export default defineConfig({
-  test: {
-    include: ['extensions/**/*.test.ts'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html'],
-      include: ['extensions/**/*.ts'],
-      exclude: ['extensions/**/*.test.ts'],
-      thresholds: {
-        lines: 100,
-        functions: 100,
-        branches: 100,
-        statements: 100,
+export default mergeConfig(
+  baseConfig,
+  defineConfig({
+    test: {
+      include: ['extensions/**/*.test.ts'],
+      coverage: {
+        include: ['extensions/**/*.ts'],
+        exclude: ['extensions/**/*.test.ts'],
       },
     },
-  },
-});
+  }),
+);

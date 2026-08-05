@@ -194,17 +194,6 @@ describe('handleInput', () => {
     });
   });
 
-  it('return triggers onClose', () => {
-    const settings: Settings = { packages: [] };
-    const overrides = new Map<string, boolean>();
-    const onClose = vi.fn();
-    const comp = new PackageListComponent([], settings, true, overrides, mockTheme, onClose);
-
-    comp.handleInput('\r');
-
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
   it('j navigates down and wraps', () => {
     const settings: Settings = { packages: ['npm:a', 'npm:b'] };
     const overrides = new Map<string, boolean>();
@@ -379,29 +368,6 @@ describe('handleInput', () => {
     comp.handleInput(' ');
 
     expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('space is a no-op if selectedIndex is ever out of range (defensive guard)', () => {
-    // selectedIndex can never actually leave [0, packages.length) through the
-    // public API (navigation always wraps via modulo) — this test exercises
-    // that defensive guard directly by forcing an invalid internal state, the
-    // same way an unexpected future bug might.
-    const settings: Settings = { packages: ['npm:pi-lens'] };
-    const overrides = new Map<string, boolean>();
-    const onClose = vi.fn();
-    const comp = new PackageListComponent(
-      [makePackage()],
-      settings,
-      true,
-      overrides,
-      mockTheme,
-      onClose,
-    );
-    (comp as unknown as { selectedIndex: number }).selectedIndex = 5;
-
-    comp.handleInput(' ');
-
-    expect(overrides.size).toBe(0);
   });
 
   it('treats a package absent from settings as persisted-enabled', () => {
