@@ -1,0 +1,55 @@
+{
+  "name": "@aaronkyriesenbach/pi-substitute-commands",
+  "version": "0.1.0",
+  "description": "Pi extension that hard-blocks agent-issued bash tool calls containing disallowed commands and suggests replacements.",
+  "keywords": [
+    "pi-package",
+    "pi-extension"
+  ],
+  "license": "MIT",
+  "author": "Aaron Ky-Riesenbach",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/aaronkyriesenbach/pi-packages.git",
+    "directory": "packages/pi-substitute-commands"
+  },
+  "homepage": "https://github.com/aaronkyriesenbach/pi-packages/tree/master/packages/pi-substitute-commands",
+  "bugs": {
+    "url": "https://github.com/aaronkyriesenbach/pi-packages/issues"
+  },
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "bun run typecheck && bun run lint && bun run format:check && bun run test:coverage"
+  },
+  "dependencies": {
+    "unbash": "^4.0.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.10"
+  }
+}
