@@ -20,6 +20,8 @@ jobs:
               - 'packages/pi-package-manager/**'
             pi-clean-comments:
               - 'packages/pi-clean-comments/**'
+            pi-substitute-commands:
+              - 'packages/pi-substitute-commands/**'
       - name: Build changed-packages matrix
         id: set
         run: |
@@ -32,6 +34,9 @@ jobs:
           fi
           if [ "${{ steps.filter.outputs.pi-clean-comments }}" = "true" ]; then
             packages=$(echo "$packages" | jq -c '. + ["pi-clean-comments"]')
+          fi
+          if [ "${{ steps.filter.outputs.pi-substitute-commands }}" = "true" ]; then
+            packages=$(echo "$packages" | jq -c '. + ["pi-substitute-commands"]')
           fi
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
 
