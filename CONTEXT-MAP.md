@@ -21,3 +21,10 @@ build-time/tooling concern only, not a domain relationship.
   reconsider every comment it adds or edits in an Edit/Write tool call,
   favoring deletion unless a comment earns its place. Has no
   `CONTEXT.md`/`docs/adr/` of its own yet.
+- **`packages/pi-substitute-commands`** — Pi extension that hard-blocks
+  agent-issued `bash` tool calls containing a disallowed command (initially
+  the `find`/`grep` family) and tells the agent to use the recommended
+  replacement (`fd`/`rg`) instead. See
+  [`packages/pi-substitute-commands/CONTEXT.md`](packages/pi-substitute-commands/CONTEXT.md)
+  and
+  [`packages/pi-substitute-commands/docs/adr/`](packages/pi-substitute-commands/docs/adr/).
