@@ -52,12 +52,15 @@ describe('findBlockableInvocations', () => {
     ]);
   });
 
-  it('reports only the top-level grep in find . | xargs grep TODO', () => {
-    // xargs wrapper unwrapping is out of scope for this ticket; only the
-    // top-level find (not itself wrapped) is expected here.
-    expect(findBlockableInvocations('find . | xargs grep TODO')).toEqual([
-      { command: 'find', replacement: 'fd' },
-    ]);
+  it('reports both the top-level find and the xargs-wrapped grep in find . | xargs grep TODO', () => {
+    const result = findBlockableInvocations('find . | xargs grep TODO');
+    expect(result).toHaveLength(2);
+    expect(result).toEqual(
+      expect.arrayContaining([
+        { command: 'find', replacement: 'fd' },
+        { command: 'grep', replacement: 'rg' },
+      ]),
+    );
   });
 
   it('dedupes multiple occurrences of the same disallowed command', () => {
@@ -120,5 +123,143 @@ describe('findBlockableInvocations', () => {
 
   it('fails open (returns an empty array) when unbash reports a parse error', () => {
     expect(findBlockableInvocations('find . -name "unterminated')).toEqual([]);
+  });
+});
+
+describe('findBlockableInvocations: Passthrough wrapper unwrapping', () => {
+  it.each(['sudo', 'xargs', 'nice', 'nohup', 'env', 'strace'])(
+    'blocks a disallowed command wrapped in %s',
+    (wrapper) => {
+      expect(findBlockableInvocations(`${wrapper} grep foo`)).toEqual([
+        { command: 'grep', replacement: 'rg' },
+      ]);
+    },
+  );
+
+  it('blocks a disallowed command piped into xargs', () => {
+    expect(findBlockableInvocations('printf "%s\\n" foo | xargs grep foo')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it("skips sudo's own flag (and its argument) to find the real sub-command", () => {
+    expect(findBlockableInvocations('sudo -u root grep foo')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it("skips env's own boolean flag to find the real sub-command", () => {
+    expect(findBlockableInvocations('env -i grep foo')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('skips env NAME=VALUE assignments to find the real sub-command', () => {
+    expect(findBlockableInvocations('env FOO=bar grep foo')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('never blocks git grep nested inside a passthrough wrapper', () => {
+    expect(findBlockableInvocations('sudo git grep TODO .')).toEqual([]);
+  });
+
+  it('returns an empty array when a passthrough wrapper has no sub-command', () => {
+    expect(findBlockableInvocations('sudo -u root')).toEqual([]);
+  });
+
+  it('nests Wrapper Unwrapping through a doubly-wrapped command', () => {
+    expect(findBlockableInvocations('sudo xargs grep foo')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+});
+
+describe('findBlockableInvocations: Flag wrapper unwrapping', () => {
+  it.each(['bash', 'sh', 'zsh'])('unwraps a disallowed command inside %s -c', (shell) => {
+    expect(findBlockableInvocations(`${shell} -c 'grep foo'`)).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('unwraps a disallowed find invocation inside sh -c', () => {
+    expect(findBlockableInvocations("sh -c 'find . -name x'")).toEqual([
+      { command: 'find', replacement: 'fd' },
+    ]);
+  });
+
+  it('never blocks git grep nested inside bash -c', () => {
+    expect(findBlockableInvocations("bash -c 'git grep TODO .'")).toEqual([]);
+  });
+
+  it('returns an empty array when the flag wrapper has no -c flag', () => {
+    expect(findBlockableInvocations('bash script.sh')).toEqual([]);
+  });
+
+  it('fails open locally when the nested -c script fails to parse', () => {
+    expect(findBlockableInvocations("bash -c 'if [ 1 ]'")).toEqual([]);
+  });
+
+  it('fails open locally for the nested script but keeps other findings from the same command', () => {
+    expect(findBlockableInvocations("grep foo .; bash -c 'if [ 1 ]'")).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+});
+
+describe('findBlockableInvocations: Exec wrapper unwrapping', () => {
+  it('blocks the nested command in find -exec ... ;', () => {
+    expect(findBlockableInvocations('find . -exec grep {} \\;')).toEqual([
+      { command: 'find', replacement: 'fd' },
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('blocks the nested command in find -exec ... +', () => {
+    expect(findBlockableInvocations('find . -exec grep {} +')).toEqual([
+      { command: 'find', replacement: 'fd' },
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('blocks the nested command in find -ok ... ;', () => {
+    expect(findBlockableInvocations('find . -ok grep {} \\;')).toEqual([
+      { command: 'find', replacement: 'fd' },
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('does not unwrap find -exec when it has no terminator', () => {
+    expect(findBlockableInvocations('find . -exec grep {}')).toEqual([
+      { command: 'find', replacement: 'fd' },
+    ]);
+  });
+
+  it('does not unwrap an exec wrapper with no words before its terminator', () => {
+    expect(findBlockableInvocations('find . -exec \\;')).toEqual([
+      { command: 'find', replacement: 'fd' },
+    ]);
+  });
+
+  it('does not unwrap fd -x with no sub-command words', () => {
+    expect(findBlockableInvocations('fd . -x')).toEqual([]);
+  });
+
+  it('blocks the nested command in fd -x with no terminator', () => {
+    expect(findBlockableInvocations('fd . -x grep')).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it.each(['--exec', '-X', '--exec-batch'])('blocks the nested command in fd %s', (keyword) => {
+    expect(findBlockableInvocations(`fd . ${keyword} grep`)).toEqual([
+      { command: 'grep', replacement: 'rg' },
+    ]);
+  });
+
+  it('never blocks git grep nested inside find -exec', () => {
+    expect(findBlockableInvocations('find . -exec git grep TODO {} \\;')).toEqual([
+      { command: 'find', replacement: 'fd' },
+    ]);
   });
 });
