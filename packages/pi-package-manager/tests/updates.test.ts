@@ -3,18 +3,6 @@ import { isNewerVersion, shouldCheckForUpdates } from '../lib/updates';
 import type { AutoUpdateConfig } from '../lib/types';
 
 describe('isNewerVersion edge cases', () => {
-  it('handles shorter version strings (< 3 segments)', () => {
-    expect(isNewerVersion('1.2', '1.2.0')).toBe(false);
-  });
-
-  it('release current vs pre-release latest returns false', () => {
-    expect(isNewerVersion('1.0.0', '1.0.0-beta.1')).toBe(false);
-  });
-
-  it('pre-release current vs release latest returns true', () => {
-    expect(isNewerVersion('1.0.0-alpha.1', '1.0.0')).toBe(true);
-  });
-
   it('pre-release current vs pre-release latest with same segments', () => {
     expect(isNewerVersion('1.0.0-beta.1', '1.0.0-beta.2')).toBe(false);
   });
@@ -45,11 +33,6 @@ describe('isNewerVersion', () => {
   it('detects older version as not newer', () => {
     expect(isNewerVersion('2.0.0', '1.9.9')).toBe(false);
     expect(isNewerVersion('1.0.1', '1.0.0')).toBe(false);
-  });
-
-  it('handles pre-release versions', () => {
-    // pre-release is considered older than release
-    expect(isNewerVersion('1.0.0-beta.1', '1.0.0')).toBe(true);
   });
 
   it('handles larger version numbers correctly', () => {

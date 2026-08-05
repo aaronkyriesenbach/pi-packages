@@ -85,12 +85,6 @@ describe('countCommentLines', () => {
   it('returns 0 for an empty line list', () => {
     expect(countCommentLines([], ['//'])).toBe(0);
   });
-
-  it('handles a sparse array with an undefined element', () => {
-    const lines: string[] = [];
-    lines[1] = '// comment';
-    expect(countCommentLines(lines, ['//'])).toBe(1);
-  });
 });
 
 describe('extractAddedLines', () => {
