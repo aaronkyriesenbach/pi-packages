@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.3.1...pi-package-manager-v0.4.0) (2026-08-05)
+
+
+### Features
+
+* lower coverage threshold, remove junk tests ([52513b8](https://github.com/aaronkyriesenbach/pi-packages/commit/52513b866f7f5262a7c8baacaaf823725000707c))
+
 ## [0.3.1](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.3.0...pi-package-manager-v0.3.1) (2026-08-02)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@aaronkyriesenbach/pi-substitute-commands",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Pi extension that hard-blocks agent-issued bash tool calls containing disallowed commands and suggests replacements.",
   "keywords": [
     "pi-package",
