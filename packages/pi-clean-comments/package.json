@@ -1,6 +1,6 @@
 {
   "name": "@aaronkyriesenbach/pi-clean-comments",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pi extension that nudges the agent to reconsider every comment it adds or edits, favoring deletion unless a comment earns its place.",
   "keywords": [
     "pi-package",

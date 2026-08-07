@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.2.0...pi-clean-comments-v0.3.0) (2026-08-07)
+
+
+### Features
+
+* increase severity/variance in pi-clean-comments warnings ([22e036a](https://github.com/aaronkyriesenbach/pi-packages/commit/22e036a2679bdd5e001b22dc836647f51c3ba43b))
+
 ## [0.2.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.1.1...pi-clean-comments-v0.2.0) (2026-08-05)
 
 
