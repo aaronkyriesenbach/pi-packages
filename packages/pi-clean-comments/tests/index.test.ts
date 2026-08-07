@@ -3,9 +3,13 @@ import type { ToolResultEvent, ExtensionAPI } from '@earendil-works/pi-coding-ag
 import defaultExport, {
   appendNote,
   COMMENT_TOKENS,
-  countCommentLines,
+  commentSeverityFor,
   extractAddedLines,
+  findAddedCommentHits,
+  findCommentHits,
+  formatBlock,
   getCommentTokens,
+  groupCommentBlocks,
   isCommentLine,
   isShebang,
   messageFor,
@@ -66,29 +70,32 @@ describe('isCommentLine', () => {
   });
 });
 
-describe('countCommentLines', () => {
-  it('counts comment lines, skipping blanks and non-comment lines', () => {
+describe('findCommentHits', () => {
+  it('finds comment lines, skipping blanks and non-comment lines, tagged with 1-based line numbers', () => {
     const lines = ['// one', 'const x = 1;', '', '// two'];
-    expect(countCommentLines(lines, ['//'])).toBe(2);
+    expect(findCommentHits(lines, ['//'])).toEqual([
+      { line: 1, text: '// one' },
+      { line: 4, text: '// two' },
+    ]);
   });
 
   it('skips a shebang on the first line', () => {
     const lines = ['#!/usr/bin/env node', '# real comment'];
-    expect(countCommentLines(lines, ['#'])).toBe(1);
+    expect(findCommentHits(lines, ['#'])).toEqual([{ line: 2, text: '# real comment' }]);
   });
 
   it('does not skip a "#!" line when it is not first', () => {
     const lines = ['x = 1', '#!/not/a/shebang'];
-    expect(countCommentLines(lines, ['#'])).toBe(1);
+    expect(findCommentHits(lines, ['#'])).toEqual([{ line: 2, text: '#!/not/a/shebang' }]);
   });
 
-  it('returns 0 for an empty line list', () => {
-    expect(countCommentLines([], ['//'])).toBe(0);
+  it('returns an empty array for an empty line list', () => {
+    expect(findCommentHits([], ['//'])).toEqual([]);
   });
 });
 
 describe('extractAddedLines', () => {
-  it('extracts only "+"-prefixed content lines, dropping the "+++" header', () => {
+  it('extracts "+"-prefixed content lines with their new-file line number, dropping the "+++" header', () => {
     const patch = [
       '--- a/foo.ts',
       '+++ b/foo.ts',
@@ -97,24 +104,178 @@ describe('extractAddedLines', () => {
       '+// note',
       '-old',
     ].join('\n');
-    expect(extractAddedLines(patch)).toEqual(['// note']);
+    expect(extractAddedLines(patch)).toEqual([{ lineNumber: 2, text: '// note' }]);
+  });
+
+  it('advances the line cursor past unchanged context lines', () => {
+    const patch = [
+      '--- a/foo.ts',
+      '+++ b/foo.ts',
+      '@@ -1,3 +1,4 @@',
+      ' const a = 1;',
+      ' const b = 2;',
+      '+// note',
+      ' const c = 3;',
+    ].join('\n');
+    expect(extractAddedLines(patch)).toEqual([{ lineNumber: 3, text: '// note' }]);
   });
 
   it('returns an empty array when there are no added lines', () => {
     const patch = ['--- a/foo.ts', '+++ b/foo.ts', '@@ -1 +1 @@', '-old', ' unchanged'].join('\n');
     expect(extractAddedLines(patch)).toEqual([]);
   });
+
+  it('ignores content lines that appear before any hunk header', () => {
+    const patch = ['--- a/foo.ts', '+++ b/foo.ts', '+// no preceding hunk header'].join('\n');
+    expect(extractAddedLines(patch)).toEqual([]);
+  });
+});
+
+describe('findAddedCommentHits', () => {
+  it('filters patch lines down to added comment lines', () => {
+    const patchLines = [
+      { lineNumber: 5, text: 'const x = 1;' },
+      { lineNumber: 6, text: '// a gotcha' },
+    ];
+    expect(findAddedCommentHits(patchLines, ['//'])).toEqual([{ line: 6, text: '// a gotcha' }]);
+  });
+
+  it("skips a shebang added as the file's first line", () => {
+    const patchLines = [{ lineNumber: 1, text: '#!/usr/bin/env node' }];
+    expect(findAddedCommentHits(patchLines, ['#'])).toEqual([]);
+  });
+});
+
+describe('groupCommentBlocks', () => {
+  it('groups contiguous hits into a single block', () => {
+    const hits = [
+      { line: 5, text: '// one' },
+      { line: 6, text: '// two' },
+      { line: 7, text: '// three' },
+    ];
+    expect(groupCommentBlocks(hits)).toEqual([
+      { startLine: 5, endLine: 7, lines: ['// one', '// two', '// three'] },
+    ]);
+  });
+
+  it('keeps non-contiguous hits as separate blocks', () => {
+    const hits = [
+      { line: 1, text: '// a' },
+      { line: 10, text: '// b' },
+    ];
+    expect(groupCommentBlocks(hits)).toEqual([
+      { startLine: 1, endLine: 1, lines: ['// a'] },
+      { startLine: 10, endLine: 10, lines: ['// b'] },
+    ]);
+  });
+
+  it('sorts out-of-order hits before grouping', () => {
+    const hits = [
+      { line: 6, text: '// two' },
+      { line: 5, text: '// one' },
+    ];
+    expect(groupCommentBlocks(hits)).toEqual([
+      { startLine: 5, endLine: 6, lines: ['// one', '// two'] },
+    ]);
+  });
+
+  it('returns an empty array for no hits', () => {
+    expect(groupCommentBlocks([])).toEqual([]);
+  });
+});
+
+describe('commentSeverityFor', () => {
+  it('is "single" for exactly one line', () => {
+    expect(commentSeverityFor(1)).toBe('single');
+  });
+
+  it('is "short" for two to four lines', () => {
+    expect(commentSeverityFor(2)).toBe('short');
+    expect(commentSeverityFor(4)).toBe('short');
+  });
+
+  it('is "long" for five or more lines', () => {
+    expect(commentSeverityFor(5)).toBe('long');
+    expect(commentSeverityFor(20)).toBe('long');
+  });
+});
+
+describe('formatBlock', () => {
+  it('labels and locates a single-line block, and picks a "single"-tier instruction', () => {
+    const output = formatBlock('foo.ts', {
+      startLine: 42,
+      endLine: 42,
+      lines: ['// increment the counter'],
+    });
+    expect(output).toContain('foo.ts:42 (1-line comment):');
+    expect(output).toContain('  foo.ts:42: // increment the counter');
+    expect(output).toContain('non-obvious why/gotcha');
+  });
+
+  it('labels and locates a short block, and picks a "short"-tier instruction', () => {
+    const output = formatBlock('foo.ts', {
+      startLine: 10,
+      endLine: 11,
+      lines: ['// one', '// two'],
+    });
+    expect(output).toContain('foo.ts:10-11 (2-line comment block):');
+    expect(output).toContain('  foo.ts:10: // one');
+    expect(output).toContain('  foo.ts:11: // two');
+    expect(output).toContain('delete it now.');
+  });
+
+  it('labels and locates a long block, and picks a "long"-tier instruction', () => {
+    const lines = ['// 1', '// 2', '// 3', '// 4', '// 5'];
+    const output = formatBlock('foo.ts', { startLine: 1, endLine: 5, lines });
+    expect(output).toContain('foo.ts:1-5 (5-line comment block):');
+    expect(output).toContain('right now.');
+  });
+
+  it('is deterministic for the same file path and block', () => {
+    const block = { startLine: 12, endLine: 12, lines: ['// a gotcha'] };
+    expect(formatBlock('foo.ts', block)).toBe(formatBlock('foo.ts', block));
+  });
+
+  it('can pick a different variant for differently-touched blocks', () => {
+    const a = formatBlock('foo.ts', { startLine: 1, endLine: 1, lines: ['// x'] });
+    const b = formatBlock('foo.ts', { startLine: 2, endLine: 2, lines: ['// x'] });
+    expect(a).not.toBe(b);
+  });
 });
 
 describe('messageFor', () => {
-  it('uses singular phrasing for exactly one touched comment', () => {
-    expect(messageFor(1)).toContain('(1 touched)');
-    expect(messageFor(1)).toContain('Keep it only if');
+  it('reports one block for a single comment line, tagged with "single" severity', () => {
+    const message = messageFor('foo.ts', [{ line: 42, text: '// increment the counter' }]);
+    expect(message).toContain('<comment-check required severity="single">');
+    expect(message).toContain('1 new comment in foo.ts');
+    expect(message).toContain('foo.ts:42 (1-line comment):');
+    expect(message).toContain('  foo.ts:42: // increment the counter');
+    expect(message).toContain('</comment-check>');
   });
 
-  it('uses plural phrasing for more than one touched comment', () => {
-    expect(messageFor(3)).toContain('(3 touched)');
-    expect(messageFor(3)).toContain('Keep only ones');
+  it('groups contiguous hits into one block, tagged with "short" severity', () => {
+    const message = messageFor('foo.ts', [
+      { line: 3, text: '// one' },
+      { line: 4, text: '// two' },
+    ]);
+    expect(message).toContain('<comment-check required severity="short">');
+    expect(message).toContain('1 new comment in foo.ts');
+    expect(message).toContain('foo.ts:3-4 (2-line comment block):');
+  });
+
+  it('reports separate blocks for non-contiguous hits, tagged with the highest severity present', () => {
+    const message = messageFor('foo.ts', [
+      { line: 1, text: '// a' },
+      { line: 20, text: '// b1' },
+      { line: 21, text: '// b2' },
+      { line: 22, text: '// b3' },
+      { line: 23, text: '// b4' },
+      { line: 24, text: '// b5' },
+    ]);
+    expect(message).toContain('<comment-check required severity="long">');
+    expect(message).toContain('2 new comments in foo.ts');
+    expect(message).toContain('foo.ts:1 (1-line comment):');
+    expect(message).toContain('foo.ts:20-24 (5-line comment block):');
   });
 });
 
@@ -239,30 +400,38 @@ describe('default export (extension factory)', () => {
   it('ignores edit results whose patch adds no comment lines', () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const patch = ['--- a/foo.ts', '+++ b/foo.ts', '+const x = 1;'].join('\n');
+    const patch = ['--- a/foo.ts', '+++ b/foo.ts', '@@ -1 +1 @@', '+const x = 1;'].join('\n');
     const result = getHandler()(buildEditResult({ details: { patch } }));
     expect(result).toBeUndefined();
   });
 
-  it('appends a singular note when an edit patch adds one comment line', () => {
+  it('appends a note for a single added comment line, tagged with "single" severity', () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const patch = ['--- a/foo.ts', '+++ b/foo.ts', '+// one comment'].join('\n');
+    const patch = ['--- a/foo.ts', '+++ b/foo.ts', '@@ -1 +1,2 @@', '+// one comment'].join('\n');
     const result = getHandler()(buildEditResult({ details: { patch } }));
     const content = requireContent(result);
     expect(content).toHaveLength(2);
     expect(textOf(content[0])).toBe('ok');
-    expect(textOf(content[1])).toContain('(1 touched)');
+    expect(textOf(content[1])).toContain('severity="single"');
+    expect(textOf(content[1])).toContain('1 new comment in foo.ts');
+    expect(textOf(content[1])).toContain('foo.ts:1 (1-line comment):');
+    expect(textOf(content[1])).toContain('  foo.ts:1: // one comment');
   });
 
-  it('appends a plural note when an edit patch adds multiple comment lines', () => {
+  it('groups two contiguous added comment lines into a single "short" block', () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const patch = ['--- a/foo.ts', '+++ b/foo.ts', '+// one', '+// two'].join('\n');
+    const patch = ['--- a/foo.ts', '+++ b/foo.ts', '@@ -1 +1,3 @@', '+// one', '+// two'].join(
+      '\n',
+    );
     const result = getHandler()(buildEditResult({ details: { patch } }));
     const content = requireContent(result);
-    expect(content).toHaveLength(2);
-    expect(textOf(content[1])).toContain('(2 touched)');
+    expect(textOf(content[1])).toContain('severity="short"');
+    expect(textOf(content[1])).toContain('1 new comment in foo.ts');
+    expect(textOf(content[1])).toContain('foo.ts:1-2 (2-line comment block):');
+    expect(textOf(content[1])).toContain('  foo.ts:1: // one');
+    expect(textOf(content[1])).toContain('  foo.ts:2: // two');
   });
 
   it('ignores write results whose path is not a string', () => {
@@ -297,15 +466,30 @@ describe('default export (extension factory)', () => {
     expect(result).toBeUndefined();
   });
 
-  it('appends a note when a write body contains comment lines', () => {
+  it('reports two separate single-line blocks for non-contiguous comments in a write body', () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
     const result = getHandler()(
       buildWriteResult({ input: { path: 'foo.ts', content: '// a\nconst x = 1;\n// b' } }),
     );
     const content = requireContent(result);
-    expect(content).toHaveLength(2);
-    expect(textOf(content[1])).toContain('(2 touched)');
+    expect(textOf(content[1])).toContain('severity="single"');
+    expect(textOf(content[1])).toContain('2 new comments in foo.ts');
+    expect(textOf(content[1])).toContain('foo.ts:1 (1-line comment):');
+    expect(textOf(content[1])).toContain('  foo.ts:1: // a');
+    expect(textOf(content[1])).toContain('foo.ts:3 (1-line comment):');
+    expect(textOf(content[1])).toContain('  foo.ts:3: // b');
+  });
+
+  it('escalates severity and wording for a long comment block in a write body', () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    const body = ['// 1', '// 2', '// 3', '// 4', '// 5', 'const x = 1;'].join('\n');
+    const result = getHandler()(buildWriteResult({ input: { path: 'foo.ts', content: body } }));
+    const content = requireContent(result);
+    expect(textOf(content[1])).toContain('severity="long"');
+    expect(textOf(content[1])).toContain('foo.ts:1-5 (5-line comment block):');
+    expect(textOf(content[1])).toContain('right now.');
   });
 
   it('ignores other tool result types', () => {
