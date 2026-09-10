@@ -57,9 +57,9 @@ they've always had.
 
 ## Configuration
 
-By default this extension only nudges. Add a `.pi/pi-clean-comments.json`
-file (project-level) and/or `~/.pi/agent/extensions/pi-clean-comments.json`
-(user-level default) to configure enforcement:
+Config is resolved per project from `<cwd>/.pi/pi-clean-comments.json`,
+falling back to `~/.pi/agent/extensions/pi-clean-comments.json`, then
+hardcoded defaults. Project values win over user values on a per-key basis.
 
 ```json
 {
@@ -83,6 +83,34 @@ Under `gate`, a comment block exceeding `threshold` is removed from the
 in the same call still lands. The agent is told exactly which lines were
 stripped. Blocks at or under `threshold` are untouched and still receive
 the usual severity-scaled nudge.
+
+### Agent-requested comment exceptions
+
+When `allowAgentBypassRequest` is `true` and the session has an interactive
+UI (`ctx.hasUI`), a `request_comment_exception` tool is registered at
+session start. It lets the agent ask a human, live, to let a comment gate
+mode would otherwise strip land anyway, instead of shortening or deleting
+it. The tool takes the same `{ path, edits: [{ oldText, newText }] }` shape
+as the built-in `edit` tool, plus a required, non-empty `reason`.
+
+Calling it presents the current and requested text for each edit, the
+file path, and the reason to the human as a three-way choice:
+
+- **Approve** — the edit is applied through the exact same mechanism the
+  built-in `edit` tool uses, including its `oldText` staleness check. A
+  stale `oldText` fails the same way a stale `edit` call would.
+- **Deny** — the tool returns a result telling the agent the request was
+  denied; nothing is applied.
+- **Request changes** — the human's feedback text is collected and
+  returned to the agent, which can revise and call the tool again.
+
+Every request is resolved synchronously, in the moment — nothing about
+it (approved, denied, or attempted) is ever persisted to disk. When no UI
+is available (print mode, JSON mode, or inside a subagent, which pi
+always runs with `--mode json -p`), the tool is not registered at all, so
+a longer comment can never land in that context; it must be shortened
+instead. See `docs/adr/0003-bypass-requests-synchronous-only.md` for the
+full rationale.
 
 ## Install
 

@@ -3,7 +3,9 @@ import type {
   EditToolCallEvent,
   ExtensionAPI,
   ExtensionContext,
+  SessionStartEvent,
   ToolCallEvent,
+  ToolDefinition,
   ToolResultEvent,
   WriteToolCallEvent,
 } from '@earendil-works/pi-coding-agent';
@@ -21,6 +23,7 @@ vi.mock('node:fs/promises', () => ({
   }),
 }));
 
+import { getProjectConfigPath } from '../extensions/config.js';
 import defaultExport, {
   appendNote,
   BLOCK_COMMENT_TOKENS,
@@ -42,7 +45,6 @@ import defaultExport, {
   stripNoteFor,
   stripOverThresholdBlocks,
 } from '../extensions/index.js';
-import { getProjectConfigPath } from '../extensions/config.js';
 
 const CWD = '/project';
 const PROJECT_CONFIG_PATH = getProjectConfigPath(CWD);
@@ -503,6 +505,8 @@ type ToolCallHandler = (
   ctx: ExtensionContext,
 ) => Promise<{ block?: boolean; reason?: string } | undefined>;
 
+type SessionStartHandler = (event: SessionStartEvent, ctx: ExtensionContext) => Promise<void>;
+
 function textOf(content: ToolResultEvent['content'][number] | undefined): string {
   if (content?.type !== 'text') throw new Error('expected text content');
   return content.text;
@@ -518,19 +522,30 @@ function requireContent(
 function buildFakeApi(): {
   pi: ExtensionAPI;
   onMock: ReturnType<typeof vi.fn>;
+  registerToolMock: ReturnType<typeof vi.fn>;
   getHandler: () => ToolResultHandler;
   getCallHandler: () => ToolCallHandler;
+  getSessionStartHandler: () => SessionStartHandler;
+  getRegisteredTools: () => ToolDefinition[];
 } {
   let handler: ToolResultHandler | undefined;
   let callHandler: ToolCallHandler | undefined;
-  const onMock = vi.fn((eventName: string, fn: ToolResultHandler | ToolCallHandler): void => {
+  let sessionStartHandler: SessionStartHandler | undefined;
+  const registeredTools: ToolDefinition[] = [];
+  type AnyHandler = ToolResultHandler | ToolCallHandler | SessionStartHandler;
+  const onMock = vi.fn((eventName: string, fn: AnyHandler): void => {
     if (eventName === 'tool_result') handler = fn as ToolResultHandler;
     if (eventName === 'tool_call') callHandler = fn as ToolCallHandler;
+    if (eventName === 'session_start') sessionStartHandler = fn as SessionStartHandler;
   });
-  const pi = { on: onMock } as unknown as ExtensionAPI;
+  const registerToolMock = vi.fn((tool: ToolDefinition): void => {
+    registeredTools.push(tool);
+  });
+  const pi = { on: onMock, registerTool: registerToolMock } as unknown as ExtensionAPI;
   return {
     pi,
     onMock,
+    registerToolMock,
     getHandler: (): ToolResultHandler => {
       if (!handler) throw new Error('tool_result handler was never registered');
       return handler;
@@ -539,6 +554,11 @@ function buildFakeApi(): {
       if (!callHandler) throw new Error('tool_call handler was never registered');
       return callHandler;
     },
+    getSessionStartHandler: (): SessionStartHandler => {
+      if (!sessionStartHandler) throw new Error('session_start handler was never registered');
+      return sessionStartHandler;
+    },
+    getRegisteredTools: (): ToolDefinition[] => registeredTools,
   };
 }
 
@@ -1113,5 +1133,64 @@ describe('gate mode: tool_call strip + tool_result note', () => {
     const note = textOf(content[content.length - 1]);
     expect(note).not.toContain('request_comment_exception');
     expect(note).toContain('human reviewer');
+  });
+});
+
+function buildFakeSessionContext(overrides: Partial<ExtensionContext> = {}): ExtensionContext {
+  return { cwd: '/project', hasUI: true, ...overrides } as ExtensionContext;
+}
+
+describe('session_start (request_comment_exception registration)', () => {
+  const CWD = '/project';
+
+  it('registers the tool when allowAgentBypassRequest and hasUI are both true', async () => {
+    fsStore.set(getProjectConfigPath(CWD), JSON.stringify({ allowAgentBypassRequest: true }));
+    const { pi, getSessionStartHandler, getRegisteredTools } = buildFakeApi();
+    defaultExport(pi);
+
+    await getSessionStartHandler()(
+      { type: 'session_start', reason: 'startup' },
+      buildFakeSessionContext({ cwd: CWD, hasUI: true }),
+    );
+
+    expect(getRegisteredTools().map((tool) => tool.name)).toContain('request_comment_exception');
+  });
+
+  it('does not register the tool when allowAgentBypassRequest is false', async () => {
+    fsStore.set(getProjectConfigPath(CWD), JSON.stringify({ allowAgentBypassRequest: false }));
+    const { pi, getSessionStartHandler, getRegisteredTools } = buildFakeApi();
+    defaultExport(pi);
+
+    await getSessionStartHandler()(
+      { type: 'session_start', reason: 'startup' },
+      buildFakeSessionContext({ cwd: CWD, hasUI: true }),
+    );
+
+    expect(getRegisteredTools()).toHaveLength(0);
+  });
+
+  it('does not register the tool when hasUI is false, even with allowAgentBypassRequest true', async () => {
+    fsStore.set(getProjectConfigPath(CWD), JSON.stringify({ allowAgentBypassRequest: true }));
+    const { pi, getSessionStartHandler, getRegisteredTools } = buildFakeApi();
+    defaultExport(pi);
+
+    await getSessionStartHandler()(
+      { type: 'session_start', reason: 'startup' },
+      buildFakeSessionContext({ cwd: CWD, hasUI: false }),
+    );
+
+    expect(getRegisteredTools()).toHaveLength(0);
+  });
+
+  it('does not register the tool under print/JSON-mode or subagent defaults (no config, no UI)', async () => {
+    const { pi, getSessionStartHandler, getRegisteredTools } = buildFakeApi();
+    defaultExport(pi);
+
+    await getSessionStartHandler()(
+      { type: 'session_start', reason: 'startup' },
+      buildFakeSessionContext({ cwd: CWD, hasUI: false }),
+    );
+
+    expect(getRegisteredTools()).toHaveLength(0);
   });
 });

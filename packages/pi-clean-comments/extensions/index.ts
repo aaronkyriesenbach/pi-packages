@@ -12,6 +12,7 @@ import {
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveCleanCommentsConfig } from './config.js';
+import { createRequestCommentExceptionTool } from './request-comment-exception.js';
 
 /**
  * Nudges the agent to reconsider every comment it touches (adds or edits).
@@ -559,6 +560,13 @@ function writeNudgeNote(event: ToolResultEvent): string | undefined {
 
 export default function (pi: ExtensionAPI): void {
   const pendingStrips = new Map<string, PendingStrip>();
+
+  pi.on('session_start', async (_event, ctx) => {
+    const config = await resolveCleanCommentsConfig(ctx.cwd);
+    if (!config.allowAgentBypassRequest || !ctx.hasUI) return undefined;
+    pi.registerTool(createRequestCommentExceptionTool());
+    return undefined;
+  });
 
   pi.on('tool_call', async (event, ctx) => {
     let strip: (threshold: number, bypassWording: string | undefined) => PendingStrip | undefined;
