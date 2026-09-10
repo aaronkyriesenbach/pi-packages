@@ -2,6 +2,8 @@ import type { ExtensionAPI, ToolResultEvent } from '@earendil-works/pi-coding-ag
 import { isEditToolResult, isWriteToolResult } from '@earendil-works/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { resolveCleanCommentsConfig } from './config.js';
+import { createRequestCommentExceptionTool } from './request-comment-exception.js';
 
 /**
  * Nudges the agent to reconsider every comment it touches (adds or edits).
@@ -390,6 +392,13 @@ async function findEditCommentHits(
 }
 
 export default function (pi: ExtensionAPI): void {
+  pi.on('session_start', async (_event, ctx) => {
+    const config = await resolveCleanCommentsConfig(ctx.cwd);
+    if (!config.allowAgentBypassRequest || !ctx.hasUI) return undefined;
+    pi.registerTool(createRequestCommentExceptionTool());
+    return undefined;
+  });
+
   pi.on('tool_result', async (event) => {
     if (event.isError) return undefined;
 

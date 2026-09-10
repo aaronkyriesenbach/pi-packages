@@ -19,17 +19,19 @@
     },
     "packages/pi-clean-comments": {
       "name": "@aaronkyriesenbach/pi-clean-comments",
-      "version": "0.1.1",
+      "version": "0.4.0",
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "^0.80.10",
+        "typebox": "^1.1.38",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "*",
+        "typebox": "*",
       },
     },
     "packages/pi-frozen-defaults": {
       "name": "@aaronkyriesenbach/pi-frozen-defaults",
-      "version": "0.4.1",
+      "version": "0.6.0",
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "^0.80.6",
       },
@@ -39,7 +41,7 @@
     },
     "packages/pi-package-manager": {
       "name": "@aaronkyriesenbach/pi-package-manager",
-      "version": "0.3.1",
+      "version": "0.5.0",
       "devDependencies": {
         "@earendil-works/pi-ai": "^0.80.10",
         "@earendil-works/pi-coding-agent": "^0.80.10",
@@ -56,7 +58,7 @@
     },
     "packages/pi-substitute-commands": {
       "name": "@aaronkyriesenbach/pi-substitute-commands",
-      "version": "0.1.0",
+      "version": "1.1.0",
       "dependencies": {
         "unbash": "^4.0.0",
       },
