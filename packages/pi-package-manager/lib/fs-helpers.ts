@@ -5,7 +5,28 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { AutoUpdateConfig, PackageJson, Settings } from './types';
 
-const execFileAsync = promisify(execFile);
+// Node's execFile cannot execute .bat/.cmd files directly (it throws
+// EINVAL/ENOENT), but on Windows npm and pi are installed as .cmd shims —
+// so auto-update silently never worked there. Route through cmd.exe /c on
+// Windows to invoke the shims. The only call sites pass fixed, safe
+// arguments ('npm view <name> version' and 'pi update --extensions'), so no
+// user-controlled shell metacharacters are involved.
+const execFileP = promisify(execFile);
+
+function execFileAsync(
+  cmd: string,
+  args: string[],
+  opts: Record<string, unknown>,
+): Promise<{ stdout: string; stderr: string }> {
+  if (process.platform === 'win32') {
+    const comSpec = process.env.ComSpec ?? 'cmd.exe';
+    return execFileP(comSpec, ['/d', '/s', '/c', cmd, ...args], opts) as Promise<{
+      stdout: string;
+      stderr: string;
+    }>;
+  }
+  return execFileP(cmd, args, opts) as Promise<{ stdout: string; stderr: string }>;
+}
 
 export { execFileAsync };
 
