@@ -55,6 +55,35 @@ File extensions with no registered block delimiter (Python, YAML, shell,
 Ruby, etc.) are unaffected and keep the exact line-token-only behavior
 they've always had.
 
+## Configuration
+
+By default this extension only nudges. Add a `.pi/pi-clean-comments.json`
+file (project-level) and/or `~/.pi/agent/extensions/pi-clean-comments.json`
+(user-level default) to configure enforcement:
+
+```json
+{
+  "enforcement": "gate",
+  "threshold": 2,
+  "allowAgentBypassRequest": false
+}
+```
+
+| Key                       | Default   | Meaning                                                                                                       |
+| ------------------------- | --------- | ------------------------------------------------------------------------------------------------------------- |
+| `enforcement`             | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.              |
+| `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped. Independent of nudge's severity tiers. |
+| `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.        |
+
+Project config overrides user config on a per-key basis; keys missing from
+both fall back to the defaults above.
+
+Under `gate`, a comment block exceeding `threshold` is removed from the
+`write`/`edit` call before it executes — any unrelated code change bundled
+in the same call still lands. The agent is told exactly which lines were
+stripped. Blocks at or under `threshold` are untouched and still receive
+the usual severity-scaled nudge.
+
 ## Install
 
 ```bash

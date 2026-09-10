@@ -1,7 +1,17 @@
-import type { ExtensionAPI, ToolResultEvent } from '@earendil-works/pi-coding-agent';
-import { isEditToolResult, isWriteToolResult } from '@earendil-works/pi-coding-agent';
+import type {
+  EditToolCallEvent,
+  ExtensionAPI,
+  ToolResultEvent,
+  WriteToolCallEvent,
+} from '@earendil-works/pi-coding-agent';
+import {
+  isEditToolResult,
+  isToolCallEventType,
+  isWriteToolResult,
+} from '@earendil-works/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { resolveCleanCommentsConfig } from './config.js';
 
 /**
  * Nudges the agent to reconsider every comment it touches (adds or edits).
@@ -389,50 +399,209 @@ async function findEditCommentHits(
   return allHits.filter((hit) => addedLineNumbers.has(hit.line));
 }
 
+export interface StripResult {
+  content: string;
+  strippedBlocks: CommentBlock[];
+}
+
+// Gate mode's strip step (ADR 0002): reuses the nudge path's detection, then
+// drops every over-threshold block's lines entirely so surrounding content stays contiguous.
+export function stripOverThresholdBlocks(
+  filePath: string,
+  content: string,
+  threshold: number,
+): StripResult | undefined {
+  const tokens = getCommentTokens(filePath);
+  if (!tokens) return undefined;
+
+  const lines = content.split('\n');
+  const blockDelimiters = getBlockCommentDelimiters(filePath);
+  const hits = blockDelimiters
+    ? findBlockAwareCommentHits(lines, tokens, blockDelimiters)
+    : findCommentHits(lines, tokens);
+  const strippedBlocks = groupCommentBlocks(hits).filter((block) => block.lines.length > threshold);
+  if (strippedBlocks.length === 0) return { content, strippedBlocks: [] };
+
+  const strippedLineNumbers = new Set<number>();
+  for (const block of strippedBlocks) {
+    for (let line = block.startLine; line <= block.endLine; line++) strippedLineNumbers.add(line);
+  }
+  const keptLines = lines.filter((_, index) => !strippedLineNumbers.has(index + 1));
+  return { content: keptLines.join('\n'), strippedBlocks };
+}
+
+function formatStrippedBlock(filePath: string, block: CommentBlock): string {
+  const location =
+    block.lines.length === 1
+      ? `${filePath}:${block.startLine.toFixed(0)}`
+      : `${filePath}:${block.startLine.toFixed(0)}-${block.endLine.toFixed(0)}`;
+  const quoted = block.lines
+    .map((text, i) => `  ${filePath}:${(block.startLine + i).toFixed(0)}: ${text}`)
+    .join('\n');
+  return [`${location}:`, quoted].join('\n');
+}
+
+// No-UI sessions get an explanation instead of a pointer to a tool that doesn't exist there.
+export function bypassWordingFor(
+  allowAgentBypassRequest: boolean,
+  hasUI: boolean,
+): string | undefined {
+  if (!allowAgentBypassRequest) return undefined;
+  return hasUI
+    ? 'If this comment is genuinely justified, call request_comment_exception with the exact text and a reason to ask a human reviewer to reinstate it.'
+    : "This session has no human reviewer available to approve an exception, so a stripped comment can't be requested back here — shorten it instead.";
+}
+
+export function stripNoteFor(
+  filePath: string,
+  strippedBlocks: CommentBlock[],
+  bypassWording: string | undefined,
+): string {
+  const noun =
+    strippedBlocks.length === 1
+      ? '1 comment block'
+      : `${strippedBlocks.length.toFixed(0)} comment blocks`;
+  const body = strippedBlocks.map((block) => formatStrippedBlock(filePath, block)).join('\n\n');
+  const lines = [
+    '<comment-gate stripped="true">',
+    `${noun} in ${filePath} exceeded the configured threshold and were removed before this call executed:`,
+    '',
+    body,
+  ];
+  if (bypassWording) lines.push('', bypassWording);
+  lines.push('</comment-gate>');
+  return lines.join('\n');
+}
+
+interface PendingStrip {
+  note: string;
+}
+
+function stripWriteToolCallInput(
+  event: WriteToolCallEvent,
+  threshold: number,
+  bypassWording: string | undefined,
+): PendingStrip | undefined {
+  const filePath = event.input.path;
+  const content = event.input.content;
+  if (typeof filePath !== 'string' || typeof content !== 'string') return undefined;
+
+  const result = stripOverThresholdBlocks(filePath, content, threshold);
+  if (!result || result.strippedBlocks.length === 0) return undefined;
+
+  event.input.content = result.content;
+  return { note: stripNoteFor(filePath, result.strippedBlocks, bypassWording) };
+}
+
+function stripEditToolCallInput(
+  event: EditToolCallEvent,
+  threshold: number,
+  bypassWording: string | undefined,
+): PendingStrip | undefined {
+  const filePath = event.input.path;
+  const edits = event.input.edits;
+  if (typeof filePath !== 'string' || !Array.isArray(edits)) return undefined;
+
+  const allStrippedBlocks: CommentBlock[] = [];
+  for (const editEntry of edits) {
+    if (typeof editEntry.newText !== 'string') continue;
+    const result = stripOverThresholdBlocks(filePath, editEntry.newText, threshold);
+    if (!result || result.strippedBlocks.length === 0) continue;
+    editEntry.newText = result.content;
+    allStrippedBlocks.push(...result.strippedBlocks);
+  }
+  if (allStrippedBlocks.length === 0) return undefined;
+
+  return { note: stripNoteFor(filePath, allStrippedBlocks, bypassWording) };
+}
+
+async function editNudgeNote(event: ToolResultEvent): Promise<string | undefined> {
+  if (!isEditToolResult(event)) return undefined;
+
+  const filePath = event.input.path;
+  if (typeof filePath !== 'string') return undefined;
+  const tokens = getCommentTokens(filePath);
+  if (!tokens) return undefined;
+
+  const patch = event.details?.patch;
+  if (!patch) return undefined;
+
+  const blockDelimiters = getBlockCommentDelimiters(filePath);
+  const hits = await findEditCommentHits(
+    filePath,
+    extractAddedLines(patch),
+    tokens,
+    blockDelimiters,
+  );
+  if (hits.length === 0) return undefined;
+
+  return messageFor(filePath, hits);
+}
+
+function writeNudgeNote(event: ToolResultEvent): string | undefined {
+  if (!isWriteToolResult(event)) return undefined;
+
+  const filePath = event.input.path;
+  const fileContent = event.input.content;
+  if (typeof filePath !== 'string' || typeof fileContent !== 'string') return undefined;
+  const tokens = getCommentTokens(filePath);
+  if (!tokens) return undefined;
+
+  const lines = fileContent.split('\n');
+  const blockDelimiters = getBlockCommentDelimiters(filePath);
+  const hits = blockDelimiters
+    ? findBlockAwareCommentHits(lines, tokens, blockDelimiters)
+    : findCommentHits(lines, tokens);
+  if (hits.length === 0) return undefined;
+
+  return messageFor(filePath, hits);
+}
+
 export default function (pi: ExtensionAPI): void {
-  pi.on('tool_result', async (event) => {
-    if (event.isError) return undefined;
+  const pendingStrips = new Map<string, PendingStrip>();
 
-    if (isEditToolResult(event)) {
-      const filePath = event.input.path;
-      if (typeof filePath !== 'string') return undefined;
-      const tokens = getCommentTokens(filePath);
-      if (!tokens) return undefined;
-
-      const patch = event.details?.patch;
-      if (!patch) return undefined;
-
-      const blockDelimiters = getBlockCommentDelimiters(filePath);
-      const hits = await findEditCommentHits(
-        filePath,
-        extractAddedLines(patch),
-        tokens,
-        blockDelimiters,
-      );
-      if (hits.length === 0) return undefined;
-
-      return { content: appendNote(event.content, messageFor(filePath, hits)) };
+  pi.on('tool_call', async (event, ctx) => {
+    let strip: (threshold: number, bypassWording: string | undefined) => PendingStrip | undefined;
+    if (isToolCallEventType('write', event)) {
+      strip = (threshold, bypassWording): PendingStrip | undefined =>
+        stripWriteToolCallInput(event, threshold, bypassWording);
+    } else if (isToolCallEventType('edit', event)) {
+      strip = (threshold, bypassWording): PendingStrip | undefined =>
+        stripEditToolCallInput(event, threshold, bypassWording);
+    } else {
+      return undefined;
     }
 
-    if (isWriteToolResult(event)) {
-      const filePath = event.input.path;
-      const fileContent = event.input.content;
-      if (typeof filePath !== 'string' || typeof fileContent !== 'string') return undefined;
-      const tokens = getCommentTokens(filePath);
-      if (!tokens) return undefined;
+    const config = await resolveCleanCommentsConfig(ctx.cwd);
+    if (config.enforcement !== 'gate') return undefined;
 
-      // Write supplies the full file body, so no diffing needed. Extensions
-      // with no block delimiter keep today's line-token-only path.
-      const lines = fileContent.split('\n');
-      const blockDelimiters = getBlockCommentDelimiters(filePath);
-      const hits = blockDelimiters
-        ? findBlockAwareCommentHits(lines, tokens, blockDelimiters)
-        : findCommentHits(lines, tokens);
-      if (hits.length === 0) return undefined;
-
-      return { content: appendNote(event.content, messageFor(filePath, hits)) };
-    }
+    const bypassWording = bypassWordingFor(config.allowAgentBypassRequest, ctx.hasUI);
+    const pending = strip(config.threshold, bypassWording);
+    if (pending) pendingStrips.set(event.toolCallId, pending);
 
     return undefined;
+  });
+
+  pi.on('tool_result', async (event) => {
+    const pending = pendingStrips.get(event.toolCallId);
+    if (pending) pendingStrips.delete(event.toolCallId);
+
+    if (event.isError) return undefined;
+
+    let nudgeNote: string | undefined;
+    if (isEditToolResult(event)) {
+      nudgeNote = await editNudgeNote(event);
+    } else if (isWriteToolResult(event)) {
+      nudgeNote = writeNudgeNote(event);
+    } else {
+      return undefined;
+    }
+
+    if (!nudgeNote && !pending) return undefined;
+
+    let content = event.content;
+    if (nudgeNote) content = appendNote(content, nudgeNote);
+    if (pending) content = appendNote(content, pending.note);
+    return { content };
   });
 }

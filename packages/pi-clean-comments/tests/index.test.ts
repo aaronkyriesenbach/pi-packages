@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ToolResultEvent, ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+  EditToolCallEvent,
+  ExtensionAPI,
+  ExtensionContext,
+  ToolCallEvent,
+  ToolResultEvent,
+  WriteToolCallEvent,
+} from '@earendil-works/pi-coding-agent';
 
 // Mirrors pi-package-manager's node:fs/promises mock pattern in its own tests.
 const fsStore = vi.hoisted(() => new Map<string, string>());
@@ -17,6 +24,7 @@ vi.mock('node:fs/promises', () => ({
 import defaultExport, {
   appendNote,
   BLOCK_COMMENT_TOKENS,
+  bypassWordingFor,
   COMMENT_TOKENS,
   commentSeverityFor,
   extractAddedLines,
@@ -31,7 +39,22 @@ import defaultExport, {
   isShebang,
   messageFor,
   readFileContentOrUndefined,
+  stripNoteFor,
+  stripOverThresholdBlocks,
 } from '../extensions/index.js';
+import { getProjectConfigPath } from '../extensions/config.js';
+
+const CWD = '/project';
+const PROJECT_CONFIG_PATH = getProjectConfigPath(CWD);
+
+function setGateConfig(
+  overrides: { threshold?: number; allowAgentBypassRequest?: boolean } = {},
+): void {
+  fsStore.set(
+    PROJECT_CONFIG_PATH,
+    JSON.stringify({ enforcement: 'gate', threshold: 2, ...overrides }),
+  );
+}
 
 beforeEach(() => {
   fsStore.clear();
@@ -475,6 +498,11 @@ type ToolResultHandler = (
   event: ToolResultEvent,
 ) => Promise<{ content?: ToolResultEvent['content'] } | undefined>;
 
+type ToolCallHandler = (
+  event: ToolCallEvent,
+  ctx: ExtensionContext,
+) => Promise<{ block?: boolean; reason?: string } | undefined>;
+
 function textOf(content: ToolResultEvent['content'][number] | undefined): string {
   if (content?.type !== 'text') throw new Error('expected text content');
   return content.text;
@@ -491,10 +519,13 @@ function buildFakeApi(): {
   pi: ExtensionAPI;
   onMock: ReturnType<typeof vi.fn>;
   getHandler: () => ToolResultHandler;
+  getCallHandler: () => ToolCallHandler;
 } {
   let handler: ToolResultHandler | undefined;
-  const onMock = vi.fn((eventName: string, fn: ToolResultHandler): void => {
-    if (eventName === 'tool_result') handler = fn;
+  let callHandler: ToolCallHandler | undefined;
+  const onMock = vi.fn((eventName: string, fn: ToolResultHandler | ToolCallHandler): void => {
+    if (eventName === 'tool_result') handler = fn as ToolResultHandler;
+    if (eventName === 'tool_call') callHandler = fn as ToolCallHandler;
   });
   const pi = { on: onMock } as unknown as ExtensionAPI;
   return {
@@ -504,7 +535,15 @@ function buildFakeApi(): {
       if (!handler) throw new Error('tool_result handler was never registered');
       return handler;
     },
+    getCallHandler: (): ToolCallHandler => {
+      if (!callHandler) throw new Error('tool_call handler was never registered');
+      return callHandler;
+    },
   };
+}
+
+function buildFakeCtx(overrides: Partial<ExtensionContext> = {}): ExtensionContext {
+  return { cwd: CWD, hasUI: true, ...overrides } as unknown as ExtensionContext;
 }
 
 function buildEditResult(overrides: Partial<ToolResultEvent> = {}): ToolResultEvent {
@@ -529,6 +568,26 @@ function buildWriteResult(overrides: Partial<ToolResultEvent> = {}): ToolResultE
     content: [{ type: 'text', text: 'ok' }],
     isError: false,
     details: undefined,
+    ...overrides,
+  };
+}
+
+function buildWriteCall(overrides: Partial<WriteToolCallEvent> = {}): WriteToolCallEvent {
+  return {
+    type: 'tool_call',
+    toolCallId: 'call-2',
+    toolName: 'write',
+    input: { path: 'foo.ts', content: '' },
+    ...overrides,
+  };
+}
+
+function buildEditCall(overrides: Partial<EditToolCallEvent> = {}): EditToolCallEvent {
+  return {
+    type: 'tool_call',
+    toolCallId: 'call-1',
+    toolName: 'edit',
+    input: { path: 'foo.ts', edits: [] },
     ...overrides,
   };
 }
@@ -791,5 +850,268 @@ describe('default export (extension factory)', () => {
       details: undefined,
     });
     expect(result).toBeUndefined();
+  });
+});
+
+describe('stripOverThresholdBlocks', () => {
+  it('returns undefined for an unrecognized extension', () => {
+    expect(stripOverThresholdBlocks('foo.unknown', '// x', 2)).toBeUndefined();
+  });
+
+  it('strips a block whose line count exceeds the threshold', () => {
+    const content = ['// 1', '// 2', '// 3', 'const x = 1;'].join('\n');
+    const result = stripOverThresholdBlocks('foo.ts', content, 2);
+    expect(result?.content).toBe('const x = 1;');
+    expect(result?.strippedBlocks).toEqual([
+      { startLine: 1, endLine: 3, lines: ['// 1', '// 2', '// 3'] },
+    ]);
+  });
+
+  it('leaves a block at or under the threshold untouched', () => {
+    const content = ['// 1', '// 2', 'const x = 1;'].join('\n');
+    const result = stripOverThresholdBlocks('foo.ts', content, 2);
+    expect(result?.content).toBe(content);
+    expect(result?.strippedBlocks).toEqual([]);
+  });
+
+  it('strips only the over-threshold block, leaving unrelated code and other blocks in place', () => {
+    const content = ['// short', 'const a = 1;', '// 1', '// 2', '// 3', 'const b = 2;'].join('\n');
+    const result = stripOverThresholdBlocks('foo.ts', content, 2);
+    expect(result?.content).toBe(['// short', 'const a = 1;', 'const b = 2;'].join('\n'));
+    expect(result?.strippedBlocks).toEqual([
+      { startLine: 3, endLine: 5, lines: ['// 1', '// 2', '// 3'] },
+    ]);
+  });
+
+  it('is block-comment-aware, stripping every line of an over-threshold `/* */` block', () => {
+    const content = ['/*', ' * 1', ' * 2', ' * 3', ' */', 'const x = 1;'].join('\n');
+    const result = stripOverThresholdBlocks('foo.ts', content, 2);
+    expect(result?.content).toBe('const x = 1;');
+    expect(result?.strippedBlocks).toHaveLength(1);
+    expect(result?.strippedBlocks[0]?.lines).toEqual(['/*', '* 1', '* 2', '* 3', '*/']);
+  });
+
+  it('uses line-token-only detection for an extension with no registered block delimiter', () => {
+    const content = ['# 1', '# 2', '# 3', 'x = 1'].join('\n');
+    const result = stripOverThresholdBlocks('foo.py', content, 2);
+    expect(result?.content).toBe('x = 1');
+    expect(result?.strippedBlocks).toEqual([
+      { startLine: 1, endLine: 3, lines: ['# 1', '# 2', '# 3'] },
+    ]);
+  });
+});
+
+describe('bypassWordingFor', () => {
+  it('returns undefined when bypass requests are not allowed', () => {
+    expect(bypassWordingFor(false, true)).toBeUndefined();
+    expect(bypassWordingFor(false, false)).toBeUndefined();
+  });
+
+  it('mentions request_comment_exception when allowed and a UI is available', () => {
+    const wording = bypassWordingFor(true, true);
+    expect(wording).toContain('request_comment_exception');
+  });
+
+  it('explains a human reviewer is unavailable when allowed but there is no UI', () => {
+    const wording = bypassWordingFor(true, false);
+    expect(wording).not.toContain('request_comment_exception');
+    expect(wording).toContain('human reviewer');
+  });
+});
+
+describe('stripNoteFor', () => {
+  it('names the exact stripped lines', () => {
+    const note = stripNoteFor(
+      'foo.ts',
+      [{ startLine: 1, endLine: 3, lines: ['// 1', '// 2', '// 3'] }],
+      undefined,
+    );
+    expect(note).toContain('foo.ts:1-3:');
+    expect(note).toContain('foo.ts:1: // 1');
+    expect(note).toContain('foo.ts:2: // 2');
+    expect(note).toContain('foo.ts:3: // 3');
+  });
+
+  it('appends the bypass wording when supplied', () => {
+    const note = stripNoteFor(
+      'foo.ts',
+      [{ startLine: 1, endLine: 1, lines: ['// x'] }],
+      'call request_comment_exception',
+    );
+    expect(note).toContain('call request_comment_exception');
+  });
+
+  it('omits any bypass wording when not supplied', () => {
+    const note = stripNoteFor('foo.ts', [{ startLine: 1, endLine: 1, lines: ['// x'] }], undefined);
+    expect(note).not.toContain('request_comment_exception');
+  });
+
+  it('pluralizes the block count for more than one stripped block', () => {
+    const note = stripNoteFor(
+      'foo.ts',
+      [
+        { startLine: 1, endLine: 3, lines: ['// 1', '// 2', '// 3'] },
+        { startLine: 10, endLine: 12, lines: ['// a', '// b', '// c'] },
+      ],
+      undefined,
+    );
+    expect(note).toContain('2 comment blocks in foo.ts');
+  });
+});
+
+describe('gate mode: tool_call strip + tool_result note', () => {
+  it('registers a tool_call handler', () => {
+    const { pi, onMock } = buildFakeApi();
+    defaultExport(pi);
+    expect(onMock).toHaveBeenCalledWith('tool_call', expect.any(Function));
+  });
+
+  it('ignores tool_call events for tools other than write/edit', async () => {
+    setGateConfig({ threshold: 2 });
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const result = await getCallHandler()(
+      { type: 'tool_call', toolCallId: 'call-3', toolName: 'bash', input: { command: 'ls' } },
+      buildFakeCtx(),
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it('leaves an edit call with no over-threshold block unmutated', async () => {
+    setGateConfig({ threshold: 2 });
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const event = buildEditCall({
+      input: { path: 'foo.ts', edits: [{ oldText: 'old', newText: '// 1\nconst x = 1;' }] },
+    });
+    const result = await getCallHandler()(event, buildFakeCtx());
+
+    expect(result).toBeUndefined();
+    expect(event.input).toEqual({
+      path: 'foo.ts',
+      edits: [{ oldText: 'old', newText: '// 1\nconst x = 1;' }],
+    });
+  });
+
+  it('strips an over-threshold comment block from a write call before it executes', async () => {
+    setGateConfig({ threshold: 2 });
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const body = ['// 1', '// 2', '// 3', 'const x = 1;'].join('\n');
+    const event = buildWriteCall({ input: { path: 'foo.ts', content: body } });
+    await getCallHandler()(event, buildFakeCtx());
+
+    expect(event.input).toEqual({ path: 'foo.ts', content: 'const x = 1;' });
+  });
+
+  it('leaves an under-threshold comment block untouched and still nudges for it', async () => {
+    setGateConfig({ threshold: 2 });
+    const { pi, getCallHandler, getHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const body = ['// 1', '// 2', 'const x = 1;'].join('\n');
+    const callEvent = buildWriteCall({ input: { path: 'foo.ts', content: body } });
+    await getCallHandler()(callEvent, buildFakeCtx());
+    expect(callEvent.input).toEqual({ path: 'foo.ts', content: body });
+
+    const result = await getHandler()(
+      buildWriteResult({ input: { path: 'foo.ts', content: body } }),
+    );
+    const content = requireContent(result);
+    expect(content).toHaveLength(2);
+    expect(textOf(content[1])).toContain('severity="short"');
+    expect(textOf(content[1])).toContain('foo.ts:1-2 (2-line comment block):');
+    expect(textOf(content[1])).not.toContain('comment-gate');
+  });
+
+  it('strips an over-threshold block while an unrelated code change in the same write still lands', async () => {
+    setGateConfig({ threshold: 2 });
+    const { pi, getCallHandler, getHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const body = ['// 1', '// 2', '// 3', 'const before = 1;', 'const after = 2;'].join('\n');
+    const callEvent = buildWriteCall({ input: { path: 'foo.ts', content: body } });
+    await getCallHandler()(callEvent, buildFakeCtx());
+
+    const strippedContent = ['const before = 1;', 'const after = 2;'].join('\n');
+    expect(callEvent.input).toEqual({ path: 'foo.ts', content: strippedContent });
+
+    const result = await getHandler()(
+      buildWriteResult({ input: { path: 'foo.ts', content: strippedContent } }),
+    );
+    const content = requireContent(result);
+    expect(textOf(content[1])).toContain('comment-gate');
+    expect(textOf(content[1])).toContain('foo.ts:1-3:');
+    expect(textOf(content[1])).toContain('foo.ts:1: // 1');
+    expect(textOf(content[1])).toContain('foo.ts:2: // 2');
+    expect(textOf(content[1])).toContain('foo.ts:3: // 3');
+  });
+
+  it('strips an over-threshold block from an edit call while leaving the rest of newText untouched', async () => {
+    setGateConfig({ threshold: 2 });
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const newText = ['// 1', '// 2', '// 3', 'const x = 1;'].join('\n');
+    const event = buildEditCall({
+      input: { path: 'foo.ts', edits: [{ oldText: 'old', newText }] },
+    });
+    await getCallHandler()(event, buildFakeCtx());
+
+    expect(event.input).toEqual({
+      path: 'foo.ts',
+      edits: [{ oldText: 'old', newText: 'const x = 1;' }],
+    });
+  });
+
+  it('does not strip anything under nudge mode, including the default with no config present', async () => {
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const body = ['// 1', '// 2', '// 3', 'const x = 1;'].join('\n');
+    const event = buildWriteCall({ input: { path: 'foo.ts', content: body } });
+    const result = await getCallHandler()(event, buildFakeCtx());
+
+    expect(result).toBeUndefined();
+    expect(event.input).toEqual({ path: 'foo.ts', content: body });
+  });
+
+  it('mentions request_comment_exception in the strip note when bypass is allowed and a UI is available', async () => {
+    setGateConfig({ threshold: 2, allowAgentBypassRequest: true });
+    const { pi, getCallHandler, getHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const body = ['// 1', '// 2', '// 3', 'const x = 1;'].join('\n');
+    const callEvent = buildWriteCall({ input: { path: 'foo.ts', content: body } });
+    await getCallHandler()(callEvent, buildFakeCtx({ hasUI: true }));
+
+    const strippedContent = callEvent.input;
+    const result = await getHandler()(
+      buildWriteResult({ input: { path: 'foo.ts', content: strippedContent.content } }),
+    );
+    const content = requireContent(result);
+    expect(textOf(content[content.length - 1])).toContain('request_comment_exception');
+  });
+
+  it('explains a human reviewer is unavailable when bypass is allowed but there is no UI', async () => {
+    setGateConfig({ threshold: 2, allowAgentBypassRequest: true });
+    const { pi, getCallHandler, getHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const body = ['// 1', '// 2', '// 3', 'const x = 1;'].join('\n');
+    const callEvent = buildWriteCall({ input: { path: 'foo.ts', content: body } });
+    await getCallHandler()(callEvent, buildFakeCtx({ hasUI: false }));
+
+    const strippedContent = callEvent.input;
+    const result = await getHandler()(
+      buildWriteResult({ input: { path: 'foo.ts', content: strippedContent.content } }),
+    );
+    const content = requireContent(result);
+    const note = textOf(content[content.length - 1]);
+    expect(note).not.toContain('request_comment_exception');
+    expect(note).toContain('human reviewer');
   });
 });
