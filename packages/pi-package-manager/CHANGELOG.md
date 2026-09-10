@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.5.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.4.0...pi-package-manager-v0.5.0) (2026-09-10)
+
+
+### Features
+
+* add coverage audit ([9e672d9](https://github.com/aaronkyriesenbach/pi-packages/commit/9e672d9e882e23728546b707dfe75475485841f5))
+* add release-please/npm-publish CI, strict lint, 100% coverage ([430b811](https://github.com/aaronkyriesenbach/pi-packages/commit/430b811a360900a93f750597aba8f1c4feb0333a))
+* complete test improvements ([66a1d23](https://github.com/aaronkyriesenbach/pi-packages/commit/66a1d2375dad403878242a40b494383d8b6334cc))
+* hot-reload packages on /packages close via ctx.reload() ([d3dee76](https://github.com/aaronkyriesenbach/pi-packages/commit/d3dee7623a15ef91bcb121dce8dc3f92dcd6c1b6))
+* initial commit ([69a5925](https://github.com/aaronkyriesenbach/pi-packages/commit/69a592537fc4cf0b08129f396060c3df94b0b560))
+* lower coverage threshold, remove junk tests ([63eda26](https://github.com/aaronkyriesenbach/pi-packages/commit/63eda26c64fd90c1e54a30ebc4cd541721821d0d))
+* migrate pi-package-manager into the monorepo ([760c54b](https://github.com/aaronkyriesenbach/pi-packages/commit/760c54ba489ddc3bf25703cf4995cc28c8af23f6))
+* migrate to Bun (runtime, lockfile, CI) ([c5648ba](https://github.com/aaronkyriesenbach/pi-packages/commit/c5648bacf7ff6697903cd44a1fc90fc9eb7227bd))
+* per-session package enable/disable via 's' key in /packages ([7e51016](https://github.com/aaronkyriesenbach/pi-packages/commit/7e510162b3bdf2ab83e808e54e1f10daf0ab7adb))
+* pi-extmgr - Pi package manager extension ([6d2f8f9](https://github.com/aaronkyriesenbach/pi-packages/commit/6d2f8f98d83cee9b336f3dfcfde25d5a5cd39106))
+* switch to bun, rename pi-package-manager ([0fcac64](https://github.com/aaronkyriesenbach/pi-packages/commit/0fcac648643b8206e348f244e6b6e573a7259293))
+* T8 — extract /packages command handler + fake API ([b125841](https://github.com/aaronkyriesenbach/pi-packages/commit/b1258414bd40ba830239072c99b0d3760a4a93a7))
+* T9 — integration test for full extension lifecycle ([5a6c3fe](https://github.com/aaronkyriesenbach/pi-packages/commit/5a6c3fea48c0ed9f37bcee7dc0fac544d65c8811))
+* update agents.md ([d111e18](https://github.com/aaronkyriesenbach/pi-packages/commit/d111e18cf525cf33a9a78720675a19ab8aec1688))
+* use /reload instead of shutdown after auto-update ([6300754](https://github.com/aaronkyriesenbach/pi-packages/commit/63007540cc3bb540426302993ec7d0f85f7ac7ca))
+* Wave 1 — fix lib test gaps, deduplicate helpers, extract fs-helpers and utils ([a05508f](https://github.com/aaronkyriesenbach/pi-packages/commit/a05508ffe8e687e8686bad0f99e22a1bafd464fe))
+* Wave 2 — extract PackageListComponent, resolvePackageEntry, session handlers ([b4250dd](https://github.com/aaronkyriesenbach/pi-packages/commit/b4250ddbdea4872ae3fab5695a8d0f64cf723209))
+
+
+### Bug Fixes
+
+* assign this.settings before getPersistedEnabled in constructor ([5a53a91](https://github.com/aaronkyriesenbach/pi-packages/commit/5a53a91d759ab06f618407faa3a941dadf12bfb0))
+* correct dev test command from bun test to bun run test ([6e47934](https://github.com/aaronkyriesenbach/pi-packages/commit/6e4793476be514c95339fb8862cd29fdaf8dfde3))
+* handle session scope properly ([50ce1cc](https://github.com/aaronkyriesenbach/pi-packages/commit/50ce1cc076de8eda59d6b9efdfc088c142fa8617))
+* point extension entry at index.ts instead of dist/index.js ([99ea21d](https://github.com/aaronkyriesenbach/pi-packages/commit/99ea21da10a483ea8058d432b834dd7daf687bc4))
+* regenerate package-lock.json from the public registry ([0b740ca](https://github.com/aaronkyriesenbach/pi-packages/commit/0b740ca6a8bab525587a4ace37ab041e44829cb3))
+* validate inputs in parseVersion and resolveFilterEntry ([7c9bca5](https://github.com/aaronkyriesenbach/pi-packages/commit/7c9bca5fe5b25a2b3d7993f9b9b3835edcc7c2b7))
+* write effective session-override settings to disk before reload ([bdc78b5](https://github.com/aaronkyriesenbach/pi-packages/commit/bdc78b5c2391aabf9e009ee164faa266fb932001))
+
 ## [0.4.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.3.1...pi-package-manager-v0.4.0) (2026-08-05)
 
 
