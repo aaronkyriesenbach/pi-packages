@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-substitute-commands-v1.0.0...pi-substitute-commands-v1.1.0) (2026-09-10)
+
+
+### Features
+
+* add context/adrs for pi-substitute commands ([4681f93](https://github.com/aaronkyriesenbach/pi-packages/commit/4681f9345748d06864c9ce035d8750f07f225604))
+* detect and block simple find/grep invocations ([6e9b266](https://github.com/aaronkyriesenbach/pi-packages/commit/6e9b2661708419f1dc073996ca31c1cb7a8c8acb))
+* lower coverage threshold, remove junk tests ([63eda26](https://github.com/aaronkyriesenbach/pi-packages/commit/63eda26c64fd90c1e54a30ebc4cd541721821d0d))
+* recurse into substitutions/subshells in pi-substitute-commands ([c28c40c](https://github.com/aaronkyriesenbach/pi-packages/commit/c28c40ca7e4796aa9e5cf6b62772da0f8c668030))
+* scaffold pi-substitute-commands package ([54643bf](https://github.com/aaronkyriesenbach/pi-packages/commit/54643bfb5d4bab18c17a555667ea072455e92156))
+* unwrap wrapper commands in pi-substitute-commands ([b028862](https://github.com/aaronkyriesenbach/pi-packages/commit/b028862bce8c73c608de6c8c2d19e642cf1c497c))
+
 ## 1.0.0 (2026-08-05)
 
 

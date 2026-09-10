@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-frozen-defaults-v0.5.0...pi-frozen-defaults-v0.6.0) (2026-09-10)
+
+
+### Features
+
+* add npm publish CI via shared workflows ([a4c9517](https://github.com/aaronkyriesenbach/pi-packages/commit/a4c9517459b808ef5c8e52410db8b1d4655da1f3))
+* create package ([552911a](https://github.com/aaronkyriesenbach/pi-packages/commit/552911a700bee947ed348c858473edd652ab8108))
+* lower coverage threshold, remove junk tests ([63eda26](https://github.com/aaronkyriesenbach/pi-packages/commit/63eda26c64fd90c1e54a30ebc4cd541721821d0d))
+* migrate to Bun (runtime, lockfile, CI) ([ed83eb0](https://github.com/aaronkyriesenbach/pi-packages/commit/ed83eb0fc9751d914fe1cad1d516242c6520278f))
+* stand up pi-packages monorepo with pi-frozen-defaults ([3e0a4c1](https://github.com/aaronkyriesenbach/pi-packages/commit/3e0a4c15388cf7ebbaf9500682986d22604029aa))
+* wire monorepo release-please + publish for pi-frozen-defaults ([811a47d](https://github.com/aaronkyriesenbach/pi-packages/commit/811a47dc2b0496b960d162a62cb6ba84b6b63c0d))
+
+
+### Bug Fixes
+
+* align engines.node with the Node version CI actually tests ([20b38f1](https://github.com/aaronkyriesenbach/pi-packages/commit/20b38f12f2f5c2ab4bdd00e7314e31ffdb3d7394))
+* correct dev test command from bun test to bun run test:coverage ([cb7482e](https://github.com/aaronkyriesenbach/pi-packages/commit/cb7482e8c6eee6adb3b82f6e5778a8d20c49da25))
+* exclude generated CHANGELOG.md from prettier ([21948ab](https://github.com/aaronkyriesenbach/pi-packages/commit/21948ab7c186915cf53ffcf0094488d875d0d07d))
+* gitignore .npmrc so bun-publish auth via setup-bun works ([587c6c1](https://github.com/aaronkyriesenbach/pi-packages/commit/587c6c1979998a6dc91872223c463a64f9bf6f70))
+* regenerate lockfile against public npm registry ([fa4e64d](https://github.com/aaronkyriesenbach/pi-packages/commit/fa4e64d627bd443af8a6c11a51274c993075cf4d))
+
 ## [0.5.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-frozen-defaults-v0.4.1...pi-frozen-defaults-v0.5.0) (2026-08-05)
 
 
