@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.4.0...pi-clean-comments-v0.5.0) (2026-09-10)
+
+
+### Features
+
+* add pi-clean-comments config resolver ([21161ad](https://github.com/aaronkyriesenbach/pi-packages/commit/21161ad664b80d3fba9cf7b95ccbcab57226f5b9))
+* add request_comment_exception bypass tool ([01e9ba2](https://github.com/aaronkyriesenbach/pi-packages/commit/01e9ba292bb6c8d487df2a6de2f00fc5124091da))
+* gate mode strips over-threshold comment blocks ([fea99bd](https://github.com/aaronkyriesenbach/pi-packages/commit/fea99bd3381282e018fe3f6ec126b6726a0e5a04))
+* update docs ([a92b493](https://github.com/aaronkyriesenbach/pi-packages/commit/a92b493e9c0d3c0bdfbfac9dcf9b59bfae2b72de))
+
 ## [0.4.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.3.0...pi-clean-comments-v0.4.0) (2026-09-10)
 
 
