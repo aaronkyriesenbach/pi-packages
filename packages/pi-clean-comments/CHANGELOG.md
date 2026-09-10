@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.3.0...pi-clean-comments-v0.4.0) (2026-09-10)
+
+
+### Features
+
+* block comment detection for pi-clean-comments edit path ([eb4b5df](https://github.com/aaronkyriesenbach/pi-packages/commit/eb4b5df24388c096170d3ae59cd4de0a46b99e62))
+* block comment detection for pi-clean-comments write path ([e15a974](https://github.com/aaronkyriesenbach/pi-packages/commit/e15a9742fdf746a1d4b22e06dbffa630b9872675))
+* increase severity/variance in pi-clean-comments warnings ([cb763b8](https://github.com/aaronkyriesenbach/pi-packages/commit/cb763b8fc24f859650133b4fd99e21bd37f1bf53))
+* lower coverage threshold, remove junk tests ([63eda26](https://github.com/aaronkyriesenbach/pi-packages/commit/63eda26c64fd90c1e54a30ebc4cd541721821d0d))
+* scaffold pi-clean-comments as a full package ([f090992](https://github.com/aaronkyriesenbach/pi-packages/commit/f090992164857447de6fa7e63ff499872cc0a711)), closes [#8](https://github.com/aaronkyriesenbach/pi-packages/issues/8)
+* update context ([30270c4](https://github.com/aaronkyriesenbach/pi-packages/commit/30270c4c474b8c43bcb63b59b3aaab409a665171))
+
+
+### Bug Fixes
+
+* document skipped pi-clean-comments v0.3.0 release ([2ab3ab4](https://github.com/aaronkyriesenbach/pi-packages/commit/2ab3ab495c92d10530830fdf65c90439a2bee012))
+* recognize .dart and .ps1 in comment-token detection ([e0eea15](https://github.com/aaronkyriesenbach/pi-packages/commit/e0eea1525eec0a900897ed649811a1056647393a))
+
 ## [0.3.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.2.0...pi-clean-comments-v0.3.0) (2026-09-10)
 
 > **Note:** this entry was never tagged or published. `pi-clean-comments-v0.3.0`
