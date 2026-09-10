@@ -71,6 +71,44 @@ export function getCommentTokens(filePath: string): string[] | undefined {
   return COMMENT_TOKENS[ext];
 }
 
+export interface BlockCommentDelimiters {
+  open: string;
+  close: string;
+}
+
+// Additive alongside COMMENT_TOKENS (see ADR 0001); extend with further
+// pairs (e.g. Lua's `--[[ ]]`) as their own map entries, no redesign needed.
+export const BLOCK_COMMENT_TOKENS: Record<string, BlockCommentDelimiters> = {
+  ts: { open: '/*', close: '*/' },
+  tsx: { open: '/*', close: '*/' },
+  js: { open: '/*', close: '*/' },
+  jsx: { open: '/*', close: '*/' },
+  mjs: { open: '/*', close: '*/' },
+  cjs: { open: '/*', close: '*/' },
+  go: { open: '/*', close: '*/' },
+  rs: { open: '/*', close: '*/' },
+  java: { open: '/*', close: '*/' },
+  c: { open: '/*', close: '*/' },
+  h: { open: '/*', close: '*/' },
+  cpp: { open: '/*', close: '*/' },
+  hpp: { open: '/*', close: '*/' },
+  cc: { open: '/*', close: '*/' },
+  cs: { open: '/*', close: '*/' },
+  swift: { open: '/*', close: '*/' },
+  kt: { open: '/*', close: '*/' },
+  kts: { open: '/*', close: '*/' },
+  scala: { open: '/*', close: '*/' },
+  dart: { open: '/*', close: '*/' },
+  m: { open: '/*', close: '*/' },
+  php: { open: '/*', close: '*/' },
+  sql: { open: '/*', close: '*/' },
+};
+
+export function getBlockCommentDelimiters(filePath: string): BlockCommentDelimiters | undefined {
+  const ext = path.extname(filePath).slice(1).toLowerCase();
+  return BLOCK_COMMENT_TOKENS[ext];
+}
+
 export function isShebang(line: string, lineIndex: number): boolean {
   return lineIndex === 0 && line.startsWith('#!');
 }
@@ -143,6 +181,55 @@ export function findCommentHits(lines: string[], tokens: string[]): CommentHit[]
     const line = lines[i];
     if (line === undefined || isShebang(line, i)) continue;
     if (isCommentLine(line, tokens)) hits.push({ line: i + 1, text: line.trim() });
+  }
+  return hits;
+}
+
+/**
+ * Filter whole-file lines down to comment lines, tagged with their line
+ * number, aware of an open/close block-delimiter pair in addition to
+ * line tokens. Shared source of truth for "which lines are comment lines"
+ * for any file with a registered block delimiter; reused by the `write`
+ * handler here and, in a follow-up, the `edit` handler's post-edit scan.
+ *
+ * A block is only recognized when its open delimiter starts the trimmed
+ * line (matching the line-token model: trailing code before an open
+ * delimiter means it isn't a comment start, same as trailing code before
+ * `//`). Once open, every line up to and including the line containing
+ * the close delimiter is a comment line regardless of its own content or
+ * prefix (interior lines of a block don't need their own token). Nesting
+ * depth is not tracked — a nested block closes at its first close
+ * delimiter, per ADR 0001. An unterminated block runs to end of file.
+ */
+export function findBlockAwareCommentHits(
+  lines: string[],
+  tokens: string[],
+  delimiters: BlockCommentDelimiters,
+): CommentHit[] {
+  const hits: CommentHit[] = [];
+  let inBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === undefined) continue;
+
+    if (inBlock) {
+      hits.push({ line: i + 1, text: line.trim() });
+      if (line.includes(delimiters.close)) inBlock = false;
+      continue;
+    }
+
+    if (isShebang(line, i)) continue;
+
+    const trimmed = line.trim();
+    if (trimmed === '') continue;
+
+    if (trimmed.startsWith(delimiters.open)) {
+      hits.push({ line: i + 1, text: trimmed });
+      if (!trimmed.includes(delimiters.close, delimiters.open.length)) inBlock = true;
+      continue;
+    }
+
+    if (isCommentLine(line, tokens)) hits.push({ line: i + 1, text: trimmed });
   }
   return hits;
 }
@@ -286,9 +373,13 @@ export default function (pi: ExtensionAPI): void {
       const tokens = getCommentTokens(filePath);
       if (!tokens) return undefined;
 
-      // Write supplies the full file body, so every line in it was authored
-      // this call — no diffing needed, just scan the whole thing.
-      const hits = findCommentHits(fileContent.split('\n'), tokens);
+      // Write supplies the full file body, so no diffing needed. Extensions
+      // with no block delimiter keep today's line-token-only path.
+      const lines = fileContent.split('\n');
+      const blockDelimiters = getBlockCommentDelimiters(filePath);
+      const hits = blockDelimiters
+        ? findBlockAwareCommentHits(lines, tokens, blockDelimiters)
+        : findCommentHits(lines, tokens);
       if (hits.length === 0) return undefined;
 
       return { content: appendNote(event.content, messageFor(filePath, hits)) };

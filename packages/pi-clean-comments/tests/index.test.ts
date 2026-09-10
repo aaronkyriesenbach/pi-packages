@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ToolResultEvent, ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import defaultExport, {
   appendNote,
+  BLOCK_COMMENT_TOKENS,
   COMMENT_TOKENS,
   commentSeverityFor,
   extractAddedLines,
   findAddedCommentHits,
+  findBlockAwareCommentHits,
   findCommentHits,
   formatBlock,
+  getBlockCommentDelimiters,
   getCommentTokens,
   groupCommentBlocks,
   isCommentLine,
@@ -300,6 +303,143 @@ describe('COMMENT_TOKENS', () => {
   });
 });
 
+const BLOCK_COMMENT_EXTENSIONS = [
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'mjs',
+  'cjs',
+  'go',
+  'rs',
+  'java',
+  'c',
+  'h',
+  'cpp',
+  'hpp',
+  'cc',
+  'cs',
+  'swift',
+  'kt',
+  'kts',
+  'scala',
+  'dart',
+  'm',
+  'php',
+  'sql',
+];
+
+describe('BLOCK_COMMENT_TOKENS', () => {
+  it('is keyed by lowercase extension', () => {
+    for (const ext of Object.keys(BLOCK_COMMENT_TOKENS)) {
+      expect(ext).toBe(ext.toLowerCase());
+    }
+  });
+
+  it('registers `/* */` for exactly the 23 documented extensions', () => {
+    expect(Object.keys(BLOCK_COMMENT_TOKENS).sort()).toEqual(BLOCK_COMMENT_EXTENSIONS.sort());
+    for (const ext of BLOCK_COMMENT_EXTENSIONS) {
+      expect(BLOCK_COMMENT_TOKENS[ext]).toEqual({ open: '/*', close: '*/' });
+    }
+  });
+
+  it('does not register a block delimiter for extensions outside the list', () => {
+    for (const ext of ['py', 'yaml', 'sh', 'rb', 'lua', 'hs']) {
+      expect(BLOCK_COMMENT_TOKENS[ext]).toBeUndefined();
+    }
+  });
+});
+
+describe('getBlockCommentDelimiters', () => {
+  it('returns the delimiter pair for a known extension', () => {
+    expect(getBlockCommentDelimiters('foo.ts')).toEqual({ open: '/*', close: '*/' });
+  });
+
+  it('is case-insensitive on the extension', () => {
+    expect(getBlockCommentDelimiters('foo.TS')).toEqual({ open: '/*', close: '*/' });
+  });
+
+  it('returns undefined for an extension with no registered block delimiter', () => {
+    expect(getBlockCommentDelimiters('foo.py')).toBeUndefined();
+    expect(getBlockCommentDelimiters('foo.yaml')).toBeUndefined();
+  });
+
+  it('returns undefined for a file with no extension', () => {
+    expect(getBlockCommentDelimiters('Makefile')).toBeUndefined();
+  });
+});
+
+const SLASH_STAR = { open: '/*', close: '*/' };
+
+describe('findBlockAwareCommentHits', () => {
+  it('flags a single-line block comment on its own line', () => {
+    const lines = ['/* a note */', 'const x = 1;'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([
+      { line: 1, text: '/* a note */' },
+    ]);
+  });
+
+  it('flags every line of a multi-line block, regardless of interior prefix', () => {
+    const lines = ['/*', ' * line two', 'line three, no prefix', ' */', 'const x = 1;'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([
+      { line: 1, text: '/*' },
+      { line: 2, text: '* line two' },
+      { line: 3, text: 'line three, no prefix' },
+      { line: 4, text: '*/' },
+    ]);
+  });
+
+  it('flags an unterminated block through to end of file', () => {
+    const lines = ['/*', 'still open', 'still open too'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([
+      { line: 1, text: '/*' },
+      { line: 2, text: 'still open' },
+      { line: 3, text: 'still open too' },
+    ]);
+  });
+
+  it('does not flag a trailing block comment after code on the same line', () => {
+    const lines = ['const x = 1; /* trailing */'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([]);
+  });
+
+  it('closes a nested block comment at the first close delimiter, not the outermost', () => {
+    const lines = ['/* outer /* inner */ still outer */', 'const x = 1;'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([
+      { line: 1, text: '/* outer /* inner */ still outer */' },
+    ]);
+  });
+
+  it('flags a `/** JSDoc */`-shaped block identically to a plain block comment', () => {
+    const lines = ['/**', ' * Does a thing.', ' */', 'function f() {}'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([
+      { line: 1, text: '/**' },
+      { line: 2, text: '* Does a thing.' },
+      { line: 3, text: '*/' },
+    ]);
+  });
+
+  it('still finds plain line-token comments outside of any block', () => {
+    const lines = ['// a line comment', '/* a block */', '// another line comment'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([
+      { line: 1, text: '// a line comment' },
+      { line: 2, text: '/* a block */' },
+      { line: 3, text: '// another line comment' },
+    ]);
+  });
+
+  it('skips a shebang on the first line', () => {
+    const lines = ['#!/usr/bin/env node', '/* a block */'];
+    expect(findBlockAwareCommentHits(lines, ['//'], SLASH_STAR)).toEqual([
+      { line: 2, text: '/* a block */' },
+    ]);
+  });
+
+  it('returns an empty array for an empty line list', () => {
+    expect(findBlockAwareCommentHits([], ['//'], SLASH_STAR)).toEqual([]);
+  });
+});
+
 type ToolResultHandler = (
   event: ToolResultEvent,
 ) => { content?: ToolResultEvent['content'] } | undefined;
@@ -490,6 +630,42 @@ describe('default export (extension factory)', () => {
     expect(textOf(content[1])).toContain('severity="long"');
     expect(textOf(content[1])).toContain('foo.ts:1-5 (5-line comment block):');
     expect(textOf(content[1])).toContain('right now.');
+  });
+
+  it('flags a block comment written to a file with a registered block delimiter', () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    const body = ['/*', ' * Does a thing.', ' */', 'function f() {}'].join('\n');
+    const result = getHandler()(buildWriteResult({ input: { path: 'foo.ts', content: body } }));
+    const content = requireContent(result);
+    expect(textOf(content[1])).toContain('severity="short"');
+    expect(textOf(content[1])).toContain('1 new comment in foo.ts');
+    expect(textOf(content[1])).toContain('foo.ts:1-3 (3-line comment block):');
+    expect(textOf(content[1])).toContain('  foo.ts:1: /*');
+    expect(textOf(content[1])).toContain('  foo.ts:2: * Does a thing.');
+    expect(textOf(content[1])).toContain('  foo.ts:3: */');
+  });
+
+  it('does not flag a written file whose block comment trails code on the same line', () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    const result = getHandler()(
+      buildWriteResult({
+        input: { path: 'foo.ts', content: 'const x = 1; /* trailing */' },
+      }),
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it('behaves byte-for-byte as today for a language with no registered block delimiter', () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    const result = getHandler()(
+      buildWriteResult({ input: { path: 'foo.py', content: '# a comment\nx = 1' } }),
+    );
+    const content = requireContent(result);
+    expect(textOf(content[1])).toContain('foo.py:1 (1-line comment):');
+    expect(textOf(content[1])).toContain('  foo.py:1: # a comment');
   });
 
   it('ignores other tool result types', () => {
