@@ -1,5 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolResultEvent, ExtensionAPI } from '@earendil-works/pi-coding-agent';
+
+// Mirrors pi-package-manager's node:fs/promises mock pattern in its own tests.
+const fsStore = vi.hoisted(() => new Map<string, string>());
+
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn((path: string): string => {
+    const cached = fsStore.get(path);
+    if (cached !== undefined) return cached;
+    const err = new Error('ENOENT: no such file') as NodeJS.ErrnoException;
+    err.code = 'ENOENT';
+    throw err;
+  }),
+}));
+
 import defaultExport, {
   appendNote,
   BLOCK_COMMENT_TOKENS,
@@ -16,7 +30,13 @@ import defaultExport, {
   isCommentLine,
   isShebang,
   messageFor,
+  readFileContentOrUndefined,
 } from '../extensions/index.js';
+
+beforeEach(() => {
+  fsStore.clear();
+  vi.clearAllMocks();
+});
 
 describe('getCommentTokens', () => {
   it('returns the token list for a known extension', () => {
@@ -440,9 +460,20 @@ describe('findBlockAwareCommentHits', () => {
   });
 });
 
+describe('readFileContentOrUndefined', () => {
+  it('returns the file content on a successful read', async () => {
+    fsStore.set('foo.ts', 'const x = 1;');
+    await expect(readFileContentOrUndefined('foo.ts')).resolves.toBe('const x = 1;');
+  });
+
+  it('returns undefined, not a rejection, when the read throws', async () => {
+    await expect(readFileContentOrUndefined('missing.ts')).resolves.toBeUndefined();
+  });
+});
+
 type ToolResultHandler = (
   event: ToolResultEvent,
-) => { content?: ToolResultEvent['content'] } | undefined;
+) => Promise<{ content?: ToolResultEvent['content'] } | undefined>;
 
 function textOf(content: ToolResultEvent['content'][number] | undefined): string {
   if (content?.type !== 'text') throw new Error('expected text content');
@@ -509,47 +540,47 @@ describe('default export (extension factory)', () => {
     expect(onMock).toHaveBeenCalledWith('tool_result', expect.any(Function));
   });
 
-  it('ignores error results', () => {
+  it('ignores error results', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(buildEditResult({ isError: true }));
+    const result = await getHandler()(buildEditResult({ isError: true }));
     expect(result).toBeUndefined();
   });
 
-  it('ignores edit results whose path is not a string', () => {
+  it('ignores edit results whose path is not a string', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(buildEditResult({ input: {} }));
+    const result = await getHandler()(buildEditResult({ input: {} }));
     expect(result).toBeUndefined();
   });
 
-  it('ignores edit results for an unrecognized extension', () => {
+  it('ignores edit results for an unrecognized extension', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(buildEditResult({ input: { path: 'foo.unknown' } }));
+    const result = await getHandler()(buildEditResult({ input: { path: 'foo.unknown' } }));
     expect(result).toBeUndefined();
   });
 
-  it('ignores edit results with no patch details', () => {
+  it('ignores edit results with no patch details', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(buildEditResult({ details: undefined }));
+    const result = await getHandler()(buildEditResult({ details: undefined }));
     expect(result).toBeUndefined();
   });
 
-  it('ignores edit results whose patch adds no comment lines', () => {
+  it('ignores edit results whose patch adds no comment lines', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
     const patch = ['--- a/foo.ts', '+++ b/foo.ts', '@@ -1 +1 @@', '+const x = 1;'].join('\n');
-    const result = getHandler()(buildEditResult({ details: { patch } }));
+    const result = await getHandler()(buildEditResult({ details: { patch } }));
     expect(result).toBeUndefined();
   });
 
-  it('appends a note for a single added comment line, tagged with "single" severity', () => {
+  it('appends a note for a single added comment line, tagged with "single" severity', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
     const patch = ['--- a/foo.ts', '+++ b/foo.ts', '@@ -1 +1,2 @@', '+// one comment'].join('\n');
-    const result = getHandler()(buildEditResult({ details: { patch } }));
+    const result = await getHandler()(buildEditResult({ details: { patch } }));
     const content = requireContent(result);
     expect(content).toHaveLength(2);
     expect(textOf(content[0])).toBe('ok');
@@ -559,13 +590,13 @@ describe('default export (extension factory)', () => {
     expect(textOf(content[1])).toContain('  foo.ts:1: // one comment');
   });
 
-  it('groups two contiguous added comment lines into a single "short" block', () => {
+  it('groups two contiguous added comment lines into a single "short" block', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
     const patch = ['--- a/foo.ts', '+++ b/foo.ts', '@@ -1 +1,3 @@', '+// one', '+// two'].join(
       '\n',
     );
-    const result = getHandler()(buildEditResult({ details: { patch } }));
+    const result = await getHandler()(buildEditResult({ details: { patch } }));
     const content = requireContent(result);
     expect(textOf(content[1])).toContain('severity="short"');
     expect(textOf(content[1])).toContain('1 new comment in foo.ts');
@@ -574,42 +605,117 @@ describe('default export (extension factory)', () => {
     expect(textOf(content[1])).toContain('  foo.ts:2: // two');
   });
 
-  it('ignores write results whose path is not a string', () => {
+  it('flags a block comment fully added within one edit patch', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(buildWriteResult({ input: { content: '// x' } }));
+    const patch = [
+      '--- a/foo.ts',
+      '+++ b/foo.ts',
+      '@@ -1 +1,4 @@',
+      '+/*',
+      '+ * a note',
+      '+ */',
+      ' const x = 1;',
+    ].join('\n');
+    fsStore.set('foo.ts', ['/*', ' * a note', ' */', 'const x = 1;'].join('\n'));
+    const result = await getHandler()(buildEditResult({ details: { patch } }));
+    const content = requireContent(result);
+    expect(textOf(content[1])).toContain('foo.ts:1-3 (3-line comment block):');
+    expect(textOf(content[1])).toContain('  foo.ts:1: /*');
+    expect(textOf(content[1])).toContain('  foo.ts:2: * a note');
+    expect(textOf(content[1])).toContain('  foo.ts:3: */');
+  });
+
+  it('flags an edit that appends a line into the middle of a pre-existing open block', async () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    // The block's open delimiter (line 1) predates this patch and never appears
+    // in its hunk context; only line 3, the added interior line, is in the diff.
+    const patch = [
+      '--- a/foo.ts',
+      '+++ b/foo.ts',
+      '@@ -1,4 +1,5 @@',
+      ' /*',
+      ' * first',
+      '+* newly added line',
+      ' */',
+      ' const x = 1;',
+    ].join('\n');
+    fsStore.set('foo.ts', ['/*', '* first', '* newly added line', '*/', 'const x = 1;'].join('\n'));
+    const result = await getHandler()(buildEditResult({ details: { patch } }));
+    const content = requireContent(result);
+    expect(textOf(content[1])).toContain('foo.ts:3 (1-line comment):');
+    expect(textOf(content[1])).toContain('  foo.ts:3: * newly added line');
+  });
+
+  it('falls back to patch-only detection when the post-edit disk read fails', async () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    // Same shape as the pre-existing-open-block case, but fsStore has no entry
+    // for foo.ts, so the mocked readFile throws and the handler must fall back
+    // to patch-only, line-token-only detection instead of reporting nothing.
+    const patch = [
+      '--- a/foo.ts',
+      '+++ b/foo.ts',
+      '@@ -1,4 +1,5 @@',
+      ' /*',
+      ' * first',
+      '+* newly added line',
+      ' */',
+      ' const x = 1;',
+    ].join('\n');
+    const result = await getHandler()(buildEditResult({ details: { patch } }));
     expect(result).toBeUndefined();
   });
 
-  it('ignores write results whose content is not a string', () => {
+  it('uses patch-only detection for a language with no registered block delimiter', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(buildWriteResult({ input: { path: 'foo.ts' } }));
+    const patch = ['--- a/foo.py', '+++ b/foo.py', '@@ -1 +1,2 @@', '+# a comment'].join('\n');
+    const result = await getHandler()(
+      buildEditResult({ input: { path: 'foo.py' }, details: { patch } }),
+    );
+    const content = requireContent(result);
+    expect(textOf(content[1])).toContain('foo.py:1 (1-line comment):');
+    expect(textOf(content[1])).toContain('  foo.py:1: # a comment');
+  });
+
+  it('ignores write results whose path is not a string', async () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    const result = await getHandler()(buildWriteResult({ input: { content: '// x' } }));
     expect(result).toBeUndefined();
   });
 
-  it('ignores write results for an unrecognized extension', () => {
+  it('ignores write results whose content is not a string', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(
+    const result = await getHandler()(buildWriteResult({ input: { path: 'foo.ts' } }));
+    expect(result).toBeUndefined();
+  });
+
+  it('ignores write results for an unrecognized extension', async () => {
+    const { pi, getHandler } = buildFakeApi();
+    defaultExport(pi);
+    const result = await getHandler()(
       buildWriteResult({ input: { path: 'foo.unknown', content: '// x' } }),
     );
     expect(result).toBeUndefined();
   });
 
-  it('ignores write results whose content adds no comment lines', () => {
+  it('ignores write results whose content adds no comment lines', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(
+    const result = await getHandler()(
       buildWriteResult({ input: { path: 'foo.ts', content: 'const x = 1;' } }),
     );
     expect(result).toBeUndefined();
   });
 
-  it('reports two separate single-line blocks for non-contiguous comments in a write body', () => {
+  it('reports two separate single-line blocks for non-contiguous comments in a write body', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(
+    const result = await getHandler()(
       buildWriteResult({ input: { path: 'foo.ts', content: '// a\nconst x = 1;\n// b' } }),
     );
     const content = requireContent(result);
@@ -621,22 +727,26 @@ describe('default export (extension factory)', () => {
     expect(textOf(content[1])).toContain('  foo.ts:3: // b');
   });
 
-  it('escalates severity and wording for a long comment block in a write body', () => {
+  it('escalates severity and wording for a long comment block in a write body', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
     const body = ['// 1', '// 2', '// 3', '// 4', '// 5', 'const x = 1;'].join('\n');
-    const result = getHandler()(buildWriteResult({ input: { path: 'foo.ts', content: body } }));
+    const result = await getHandler()(
+      buildWriteResult({ input: { path: 'foo.ts', content: body } }),
+    );
     const content = requireContent(result);
     expect(textOf(content[1])).toContain('severity="long"');
     expect(textOf(content[1])).toContain('foo.ts:1-5 (5-line comment block):');
     expect(textOf(content[1])).toContain('right now.');
   });
 
-  it('flags a block comment written to a file with a registered block delimiter', () => {
+  it('flags a block comment written to a file with a registered block delimiter', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
     const body = ['/*', ' * Does a thing.', ' */', 'function f() {}'].join('\n');
-    const result = getHandler()(buildWriteResult({ input: { path: 'foo.ts', content: body } }));
+    const result = await getHandler()(
+      buildWriteResult({ input: { path: 'foo.ts', content: body } }),
+    );
     const content = requireContent(result);
     expect(textOf(content[1])).toContain('severity="short"');
     expect(textOf(content[1])).toContain('1 new comment in foo.ts');
@@ -646,10 +756,10 @@ describe('default export (extension factory)', () => {
     expect(textOf(content[1])).toContain('  foo.ts:3: */');
   });
 
-  it('does not flag a written file whose block comment trails code on the same line', () => {
+  it('does not flag a written file whose block comment trails code on the same line', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(
+    const result = await getHandler()(
       buildWriteResult({
         input: { path: 'foo.ts', content: 'const x = 1; /* trailing */' },
       }),
@@ -657,10 +767,10 @@ describe('default export (extension factory)', () => {
     expect(result).toBeUndefined();
   });
 
-  it('behaves byte-for-byte as today for a language with no registered block delimiter', () => {
+  it('behaves byte-for-byte as today for a language with no registered block delimiter', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()(
+    const result = await getHandler()(
       buildWriteResult({ input: { path: 'foo.py', content: '# a comment\nx = 1' } }),
     );
     const content = requireContent(result);
@@ -668,10 +778,10 @@ describe('default export (extension factory)', () => {
     expect(textOf(content[1])).toContain('  foo.py:1: # a comment');
   });
 
-  it('ignores other tool result types', () => {
+  it('ignores other tool result types', async () => {
     const { pi, getHandler } = buildFakeApi();
     defaultExport(pi);
-    const result = getHandler()({
+    const result = await getHandler()({
       type: 'tool_result',
       toolCallId: 'call-3',
       toolName: 'bash',

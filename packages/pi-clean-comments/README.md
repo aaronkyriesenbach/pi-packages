@@ -33,6 +33,28 @@ A 10-line comment block gets a noticeably harsher note than a single
 trailing one-liner, since it's the case most likely to be narration
 instead of a genuine why/gotcha.
 
+### Block comments
+
+For file extensions with a registered `/* */`-style delimiter pair (most
+C-style languages — see `BLOCK_COMMENT_TOKENS` in
+`extensions/index.ts`), detection is block-aware in both tool paths:
+
+- **`write`**: the full supplied file body is scanned for open/close
+  delimiter pairs, so every line of a multi-line block comment is flagged,
+  not just the ones with their own token.
+- **`edit`**: the file's current on-disk content is read after the edit
+  and scanned the same way, then intersected with the lines the patch
+  actually added. This means an edit that appends a new line into the
+  middle of a block comment opened by an earlier, unrelated edit is still
+  flagged, even though that open delimiter never appears in the current
+  diff's hunk context. If the post-edit read fails (file deleted/moved,
+  permission error, etc.), detection falls back to patch-only, line-token
+  detection for that call rather than reporting nothing.
+
+File extensions with no registered block delimiter (Python, YAML, shell,
+Ruby, etc.) are unaffected and keep the exact line-token-only behavior
+they've always had.
+
 ## Install
 
 ```bash

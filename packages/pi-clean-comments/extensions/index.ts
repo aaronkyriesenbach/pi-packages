@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ToolResultEvent } from '@earendil-works/pi-coding-agent';
 import { isEditToolResult, isWriteToolResult } from '@earendil-works/pi-coding-agent';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -107,6 +108,21 @@ export const BLOCK_COMMENT_TOKENS: Record<string, BlockCommentDelimiters> = {
 export function getBlockCommentDelimiters(filePath: string): BlockCommentDelimiters | undefined {
   const ext = path.extname(filePath).slice(1).toLowerCase();
   return BLOCK_COMMENT_TOKENS[ext];
+}
+
+/**
+ * Reads a file's current on-disk content, mockable in the same way
+ * `pi-package-manager` mocks `node:fs/promises` in its own tests. Any read
+ * failure (deleted/moved file, permission error, etc.) surfaces as
+ * `undefined` rather than a thrown error, so callers can fall back to
+ * patch-only detection instead of propagating the failure.
+ */
+export async function readFileContentOrUndefined(filePath: string): Promise<string | undefined> {
+  try {
+    return await readFile(filePath, 'utf-8');
+  } catch {
+    return undefined;
+  }
 }
 
 export function isShebang(line: string, lineIndex: number): boolean {
@@ -347,8 +363,34 @@ export function appendNote(
   return [...content, { type: 'text', text: `\n${note}` }];
 }
 
+/**
+ * Post-edit block-aware detection for the `edit` path: reads the whole file
+ * from disk, runs the shared scanner over all of it (so a block opened by
+ * an earlier, unrelated edit is recognized even though its open delimiter
+ * never appears in this patch's hunks), then intersects the result with
+ * the set of lines this patch actually added — an interior line of a
+ * pre-existing block is only reported if this edit is what added it.
+ * Falls back to `findAddedCommentHits` whenever the disk read fails,
+ * matching ADR 0001's decision not to report nothing.
+ */
+async function findEditCommentHits(
+  filePath: string,
+  patchLines: PatchLine[],
+  tokens: string[],
+  blockDelimiters: BlockCommentDelimiters | undefined,
+): Promise<CommentHit[]> {
+  if (!blockDelimiters) return findAddedCommentHits(patchLines, tokens);
+
+  const content = await readFileContentOrUndefined(filePath);
+  if (content === undefined) return findAddedCommentHits(patchLines, tokens);
+
+  const addedLineNumbers = new Set(patchLines.map((line) => line.lineNumber));
+  const allHits = findBlockAwareCommentHits(content.split('\n'), tokens, blockDelimiters);
+  return allHits.filter((hit) => addedLineNumbers.has(hit.line));
+}
+
 export default function (pi: ExtensionAPI): void {
-  pi.on('tool_result', (event) => {
+  pi.on('tool_result', async (event) => {
     if (event.isError) return undefined;
 
     if (isEditToolResult(event)) {
@@ -360,7 +402,13 @@ export default function (pi: ExtensionAPI): void {
       const patch = event.details?.patch;
       if (!patch) return undefined;
 
-      const hits = findAddedCommentHits(extractAddedLines(patch), tokens);
+      const blockDelimiters = getBlockCommentDelimiters(filePath);
+      const hits = await findEditCommentHits(
+        filePath,
+        extractAddedLines(patch),
+        tokens,
+        blockDelimiters,
+      );
       if (hits.length === 0) return undefined;
 
       return { content: appendNote(event.content, messageFor(filePath, hits)) };
