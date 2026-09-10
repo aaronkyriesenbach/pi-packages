@@ -2,6 +2,13 @@
 
 ## [0.3.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.2.0...pi-clean-comments-v0.3.0) (2026-09-10)
 
+> **Note:** this entry was never tagged or published. `pi-clean-comments-v0.3.0`
+> already exists as a GitHub release/npm publish from an earlier, since-rewritten
+> branch history (commit `4933a1c`), so release-please's attempt to reuse that
+> tag for this content failed with a duplicate-tag error. The commits listed
+> below actually shipped as `0.3.1` instead — see that entry for the real
+> release record.
+
 
 ### Features
 
