@@ -17,12 +17,6 @@ build-time/tooling concern only, not a domain relationship.
 - **`packages/pi-package-manager`** — Pi extension that lists, enables/disables,
   and auto-updates installed Pi packages from within a session. Has no
   `CONTEXT.md`/`docs/adr/` of its own yet.
-- **`packages/pi-clean-comments`** — Pi extension that nudges the agent to
-  reconsider every comment it adds or edits in an Edit/Write tool call,
-  favoring deletion unless a comment earns its place. See
-  [`packages/pi-clean-comments/CONTEXT.md`](packages/pi-clean-comments/CONTEXT.md)
-  and
-  [`packages/pi-clean-comments/docs/adr/`](packages/pi-clean-comments/docs/adr/).
 - **`packages/pi-substitute-commands`** — Pi extension that hard-blocks
   agent-issued `bash` tool calls containing a disallowed command (initially
   the `find`/`grep` family) and tells the agent to use the recommended

@@ -3,8 +3,8 @@
 This package needs to reliably find every Command Position in an
 agent-issued `bash` string — including nested command substitutions,
 subshells, and wrapper commands like `find -exec`/`sudo`/`xargs` — to decide
-whether it contains a Blockable Invocation. This repo's other two packages
-(`pi-frozen-defaults`, `pi-clean-comments`) carry zero runtime dependencies
+whether it contains a Blockable Invocation. This repo's other packages
+(e.g. `pi-frozen-defaults`) carry zero runtime dependencies
 beyond the `@earendil-works/pi-coding-agent` peer dependency; taking on a
 parser here breaks that precedent.
 

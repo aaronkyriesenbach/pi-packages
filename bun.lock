@@ -17,18 +17,6 @@
         "vitest": "^2.1.8",
       },
     },
-    "packages/pi-clean-comments": {
-      "name": "@aaronkyriesenbach/pi-clean-comments",
-      "version": "0.4.0",
-      "devDependencies": {
-        "@earendil-works/pi-coding-agent": "^0.80.10",
-        "typebox": "^1.1.38",
-      },
-      "peerDependencies": {
-        "@earendil-works/pi-coding-agent": "*",
-        "typebox": "*",
-      },
-    },
     "packages/pi-frozen-defaults": {
       "name": "@aaronkyriesenbach/pi-frozen-defaults",
       "version": "0.6.0",
@@ -71,8 +59,6 @@
     },
   },
   "packages": {
-    "@aaronkyriesenbach/pi-clean-comments": ["@aaronkyriesenbach/pi-clean-comments@workspace:packages/pi-clean-comments"],
-
     "@aaronkyriesenbach/pi-frozen-defaults": ["@aaronkyriesenbach/pi-frozen-defaults@workspace:packages/pi-frozen-defaults"],
 
     "@aaronkyriesenbach/pi-package-manager": ["@aaronkyriesenbach/pi-package-manager@workspace:packages/pi-package-manager"],
