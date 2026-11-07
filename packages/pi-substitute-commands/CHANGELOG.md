@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-substitute-commands-v1.1.0...pi-substitute-commands-v1.2.0) (2026-11-07)
+
+
+### Features
+
+* switch to npm trusted publishing ([097251f](https://github.com/aaronkyriesenbach/pi-packages/commit/097251fa46d8c62aa7c20bd4e1a6d7ec809858d7))
+
 ## [1.1.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-substitute-commands-v1.0.0...pi-substitute-commands-v1.1.0) (2026-09-10)
 
 

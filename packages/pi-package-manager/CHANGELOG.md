@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.5.0...pi-package-manager-v0.6.0) (2026-11-07)
+
+
+### Features
+
+* switch to npm trusted publishing ([097251f](https://github.com/aaronkyriesenbach/pi-packages/commit/097251fa46d8c62aa7c20bd4e1a6d7ec809858d7))
+
 ## [0.5.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.4.0...pi-package-manager-v0.5.0) (2026-09-10)
 
 
