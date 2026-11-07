@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.6.0...pi-clean-comments-v0.7.0) (2026-11-07)
+
+
+### Features
+
+* block bash writes to force through comment check ([4d56745](https://github.com/aaronkyriesenbach/pi-packages/commit/4d5674539d768c7077b05cfa9ee94d923deb4a17))
+
 ## [0.6.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.5.0...pi-clean-comments-v0.6.0) (2026-11-07)
 
 
