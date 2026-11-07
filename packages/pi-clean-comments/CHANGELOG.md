@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.7.0...pi-clean-comments-v0.8.0) (2026-11-07)
+
+
+### Features
+
+* block writes via python and node ([9e4b3f6](https://github.com/aaronkyriesenbach/pi-packages/commit/9e4b3f65a85ad25d3cc22eb41075d38698eb412e))
+
 ## [0.7.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.6.0...pi-clean-comments-v0.7.0) (2026-11-07)
 
 
