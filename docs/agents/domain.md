@@ -18,7 +18,7 @@ This repo (multi-context, presence of `CONTEXT-MAP.md` at the root — one conte
 ├── CONTEXT-MAP.md
 ├── docs/adr/                                  ← system-wide decisions
 └── packages/
-    ├── pi-frozen-defaults/
+    ├── pi-clean-comments/
     │   ├── CONTEXT.md
     │   └── docs/adr/                          ← package-scoped decisions
     └── <next-package>/

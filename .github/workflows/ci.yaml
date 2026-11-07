@@ -14,8 +14,6 @@ jobs:
         id: filter
         with:
           filters: |
-            pi-frozen-defaults:
-              - 'packages/pi-frozen-defaults/**'
             pi-package-manager:
               - 'packages/pi-package-manager/**'
             pi-clean-comments:
@@ -26,9 +24,6 @@ jobs:
         id: set
         run: |
           packages='[]'
-          if [ "${{ steps.filter.outputs.pi-frozen-defaults }}" = "true" ]; then
-            packages=$(echo "$packages" | jq -c '. + ["pi-frozen-defaults"]')
-          fi
           if [ "${{ steps.filter.outputs.pi-package-manager }}" = "true" ]; then
             packages=$(echo "$packages" | jq -c '. + ["pi-package-manager"]')
           fi

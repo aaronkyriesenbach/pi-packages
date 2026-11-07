@@ -16,8 +16,7 @@ export default [
     rules: {
       // Test doubles legitimately need deliberate empty-body stubs (e.g. a
       // no-op `notify`/`sendReload` dependency); allow that instead of
-      // reaching for a per-line suppression comment. Mirrors
-      // pi-frozen-defaults' own justified override for the same rule.
+      // reaching for a per-line suppression comment.
       '@typescript-eslint/no-empty-function': ['error', { allow: ['arrowFunctions'] }],
       // TS-only ambient globals (e.g. the `NodeJS` namespace) aren't visible
       // to core ESLint's no-undef, and tsc (already run in CI via typecheck)
