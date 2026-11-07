@@ -57,6 +57,7 @@ describe('resolveCleanCommentsConfig', () => {
       enforcement: 'gate',
       threshold: 5,
       allowAgentBypassRequest: true,
+      bashFileWrites: 'block',
     });
   });
 
@@ -70,6 +71,7 @@ describe('resolveCleanCommentsConfig', () => {
       enforcement: 'gate',
       threshold: 8,
       allowAgentBypassRequest: true,
+      bashFileWrites: 'block',
     });
   });
 
@@ -81,6 +83,7 @@ describe('resolveCleanCommentsConfig', () => {
       enforcement: 'gate',
       threshold: 3,
       allowAgentBypassRequest: false,
+      bashFileWrites: 'block',
     });
   });
 
@@ -92,6 +95,7 @@ describe('resolveCleanCommentsConfig', () => {
       enforcement: 'nudge',
       threshold: 8,
       allowAgentBypassRequest: true,
+      bashFileWrites: 'block',
     });
   });
 
@@ -103,6 +107,7 @@ describe('resolveCleanCommentsConfig', () => {
       enforcement: 'gate',
       threshold: DEFAULT_CONFIG.threshold,
       allowAgentBypassRequest: DEFAULT_CONFIG.allowAgentBypassRequest,
+      bashFileWrites: DEFAULT_CONFIG.bashFileWrites,
     });
   });
 
@@ -120,6 +125,7 @@ describe('resolveCleanCommentsConfig', () => {
       enforcement: DEFAULT_CONFIG.enforcement,
       threshold: DEFAULT_CONFIG.threshold,
       allowAgentBypassRequest: true,
+      bashFileWrites: DEFAULT_CONFIG.bashFileWrites,
     });
   });
 
@@ -134,6 +140,32 @@ describe('resolveCleanCommentsConfig', () => {
 
     await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
       threshold: DEFAULT_CONFIG.threshold,
+    });
+  });
+
+  it('defaults bashFileWrites to block', async () => {
+    await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
+      bashFileWrites: 'block',
+    });
+  });
+
+  it('accepts bashFileWrites off from the user file and lets the project override it', async () => {
+    fsStore.set(USER_CONFIG_PATH, JSON.stringify({ bashFileWrites: 'off' }));
+    await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
+      bashFileWrites: 'off',
+    });
+
+    fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ bashFileWrites: 'block' }));
+    await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
+      bashFileWrites: 'block',
+    });
+  });
+
+  it('drops an invalid bashFileWrites value', async () => {
+    fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ bashFileWrites: 'warn' }));
+
+    await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
+      bashFileWrites: 'block',
     });
   });
 

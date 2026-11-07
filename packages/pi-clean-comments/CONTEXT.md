@@ -42,3 +42,9 @@ An agent-initiated call asking a human to let a comment block gate mode
 would otherwise strip land anyway, requiring the human to approve, deny,
 or request changes before it can be applied.
 _Avoid_: exception request, override.
+
+**Heredoc file write**:
+A `bash` call that sends a heredoc into a file via `>`, `>>` or `tee`. Blocked
+(not parsed or rewritten) when the target's extension has registered comment
+syntax, so the content is resubmitted through `write`/`edit`.
+_Avoid_: shell write, bash write.

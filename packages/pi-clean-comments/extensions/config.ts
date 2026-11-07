@@ -6,10 +6,13 @@ import { CONFIG_DIR_NAME, getAgentDir } from '@earendil-works/pi-coding-agent';
 
 export type Enforcement = 'nudge' | 'gate';
 
+type BashFileWrites = 'block' | 'off';
+
 export interface CleanCommentsConfig {
   enforcement: Enforcement;
   threshold: number;
   allowAgentBypassRequest: boolean;
+  bashFileWrites: BashFileWrites;
 }
 
 type PartialCleanCommentsConfig = Partial<CleanCommentsConfig>;
@@ -20,6 +23,7 @@ export const DEFAULT_CONFIG: CleanCommentsConfig = {
   enforcement: 'nudge',
   threshold: 2,
   allowAgentBypassRequest: false,
+  bashFileWrites: 'block',
 };
 
 export function getProjectConfigPath(cwd: string): string {
@@ -32,6 +36,10 @@ export function getUserConfigPath(): string {
 
 function isEnforcement(value: unknown): value is Enforcement {
   return value === 'nudge' || value === 'gate';
+}
+
+function isBashFileWrites(value: unknown): value is BashFileWrites {
+  return value === 'block' || value === 'off';
 }
 
 function isValidThreshold(value: unknown): value is number {
@@ -67,6 +75,7 @@ async function readConfigFile(path: string): Promise<PartialCleanCommentsConfig>
   if (isBoolean(record.allowAgentBypassRequest)) {
     result.allowAgentBypassRequest = record.allowAgentBypassRequest;
   }
+  if (isBashFileWrites(record.bashFileWrites)) result.bashFileWrites = record.bashFileWrites;
   return result;
 }
 
@@ -83,5 +92,7 @@ export async function resolveCleanCommentsConfig(cwd: string): Promise<CleanComm
       projectConfig.allowAgentBypassRequest ??
       userConfig.allowAgentBypassRequest ??
       DEFAULT_CONFIG.allowAgentBypassRequest,
+    bashFileWrites:
+      projectConfig.bashFileWrites ?? userConfig.bashFileWrites ?? DEFAULT_CONFIG.bashFileWrites,
   };
 }

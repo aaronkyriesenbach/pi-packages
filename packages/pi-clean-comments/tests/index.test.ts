@@ -26,6 +26,7 @@ vi.mock('node:fs/promises', () => ({
 import { getProjectConfigPath } from '../extensions/config.js';
 import defaultExport, {
   appendNote,
+  bashWriteBlockReason,
   BLOCK_COMMENT_TOKENS,
   bypassWordingFor,
   COMMENT_TOKENS,
@@ -33,6 +34,7 @@ import defaultExport, {
   extractAddedLines,
   findAddedCommentHits,
   findBlockAwareCommentHits,
+  findBlockedBashWriteTarget,
   findCommentHits,
   formatBlock,
   getBlockCommentDelimiters,
@@ -1140,6 +1142,102 @@ describe('gate mode: tool_call strip + tool_result note', () => {
     const note = textOf(content[content.length - 1]);
     expect(note).not.toContain('request_comment_exception');
     expect(note).toContain('human reviewer');
+  });
+});
+
+describe('findBlockedBashWriteTarget', () => {
+  it('returns a project file target whose extension has comment syntax', () => {
+    expect(findBlockedBashWriteTarget('cat > ci.yaml <<EOF\na: 1\nEOF', CWD)).toBe('ci.yaml');
+    expect(findBlockedBashWriteTarget('cat > /project/src/a.ts <<EOF\nx\nEOF', CWD)).toBe(
+      '/project/src/a.ts',
+    );
+  });
+
+  it.each([
+    ['an extension with no comment syntax', 'cat > README.md <<EOF\nhi\nEOF'],
+    ['no extension', 'cat > Makefile <<EOF\nall:\nEOF'],
+    ['a variable path', 'cat > "$OUT/x.yaml" <<EOF\na: 1\nEOF'],
+    ['a command-substitution path', 'cat > $(mktemp).yaml <<EOF\na: 1\nEOF'],
+    ['a path outside the project', 'cat > /tmp/x.yaml <<EOF\na: 1\nEOF'],
+    ['a parent-relative path', 'cat > ../x.yaml <<EOF\na: 1\nEOF'],
+    ['a home-relative path', 'cat > ~/x.yaml <<EOF\na: 1\nEOF'],
+    ['a heredoc piped elsewhere', 'kubectl apply -f - <<EOF\na: 1\nEOF'],
+    ['a git commit message heredoc', 'git commit -m "$(cat <<\'EOF\'\nfix: x\nEOF\n)"'],
+    ['a plain redirect with no heredoc', 'echo hi > a.yaml'],
+  ])('allows %s', (_label, command) => {
+    expect(findBlockedBashWriteTarget(command, CWD)).toBeUndefined();
+  });
+
+  it('does not treat a sibling directory sharing a prefix with cwd as inside the project', () => {
+    expect(
+      findBlockedBashWriteTarget('cat > /project-other/x.yaml <<EOF\na: 1\nEOF', CWD),
+    ).toBeUndefined();
+  });
+});
+
+describe('bashWriteBlockReason', () => {
+  it('names the target and points the agent at the write/edit tools', () => {
+    const reason = bashWriteBlockReason('ci.yaml');
+    expect(reason).toContain('ci.yaml');
+    expect(reason).toContain('write tool');
+    expect(reason).toContain('edit tool');
+    expect(reason).toContain('Nothing was run');
+  });
+});
+
+describe('bash tool_call: blocking heredoc file writes', () => {
+  function buildBashCall(command: string): ToolCallEvent {
+    return {
+      type: 'tool_call',
+      toolCallId: 'call-bash',
+      toolName: 'bash',
+      input: { command },
+    };
+  }
+
+  const HEREDOC_WRITE = "cat > ci.yaml <<'EOF'\n# note\na: 1\nEOF";
+
+  it('blocks a heredoc file write by default, with no config present', async () => {
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const result = await getCallHandler()(buildBashCall(HEREDOC_WRITE), buildFakeCtx());
+    expect(result).toEqual({ block: true, reason: bashWriteBlockReason('ci.yaml') });
+  });
+
+  it('blocks under nudge mode as well as gate mode', async () => {
+    fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ enforcement: 'nudge' }));
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const result = await getCallHandler()(buildBashCall(HEREDOC_WRITE), buildFakeCtx());
+    expect(result).toMatchObject({ block: true });
+  });
+
+  it('never mutates the command', async () => {
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const event = buildBashCall(HEREDOC_WRITE);
+    await getCallHandler()(event, buildFakeCtx());
+    expect(event.input).toEqual({ command: HEREDOC_WRITE });
+  });
+
+  it('lets the call through when bashFileWrites is off', async () => {
+    fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ bashFileWrites: 'off' }));
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const result = await getCallHandler()(buildBashCall(HEREDOC_WRITE), buildFakeCtx());
+    expect(result).toBeUndefined();
+  });
+
+  it('lets an unrelated bash command through', async () => {
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const result = await getCallHandler()(buildBashCall('git status'), buildFakeCtx());
+    expect(result).toBeUndefined();
   });
 });
 

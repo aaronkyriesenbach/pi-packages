@@ -65,7 +65,8 @@ hardcoded defaults. Project values win over user values on a per-key basis.
 {
   "enforcement": "gate",
   "threshold": 2,
-  "allowAgentBypassRequest": false
+  "allowAgentBypassRequest": false,
+  "bashFileWrites": "block"
 }
 ```
 
@@ -74,6 +75,7 @@ hardcoded defaults. Project values win over user values on a per-key basis.
 | `enforcement`             | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.                                        |
 | `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped; `0` strips every comment. Independent of nudge's severity tiers. |
 | `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.                                  |
+| `bashFileWrites`          | `"block"` | `"block"` rejects `bash` calls that write a heredoc into a source file; `"off"` lets them through. Independent of `enforcement`.        |
 
 Project config overrides user config on a per-key basis; keys missing from
 both fall back to the defaults above.
@@ -83,6 +85,23 @@ Under `gate`, a comment block exceeding `threshold` is removed from the
 in the same call still lands. The agent is told exactly which lines were
 stripped. Blocks at or under `threshold` are untouched and still receive
 the usual severity-scaled nudge.
+
+### Heredoc file writes via `bash`
+
+Agents often write whole files with `cat > file.yaml <<'EOF' … EOF`, which
+never reaches the `write`/`edit` checks. With `bashFileWrites: "block"`
+(the default), a `bash` call is rejected, unrun and unmodified, when it
+sends a heredoc into a file with `>`, `>>` or `tee` and the target's
+extension has registered comment syntax. The agent is told to resubmit
+through `write`/`edit`.
+
+Allowed through: unknown extensions (`.md`, `.json`, none), targets the
+scan can't resolve (`$VAR`, `$(…)`, `~/…`), paths outside the project,
+and heredocs that aren't file writes (`git commit -m "$(cat <<EOF …)"`,
+`kubectl apply -f - <<EOF`). Other write methods (`printf > file`, `sed -i`,
+`python -c`) aren't detected. See
+`docs/adr/0004-block-bash-heredoc-file-writes.md` for why this blocks
+instead of parsing and rewriting.
 
 ### Agent-requested comment exceptions
 

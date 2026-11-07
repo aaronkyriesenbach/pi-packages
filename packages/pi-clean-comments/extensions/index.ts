@@ -11,6 +11,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { findHeredocFileTargets } from './bash-file-writes.js';
 import { resolveCleanCommentsConfig } from './config.js';
 import { createRequestCommentExceptionTool } from './request-comment-exception.js';
 
@@ -558,6 +559,27 @@ function writeNudgeNote(event: ToolResultEvent): string | undefined {
   return messageFor(filePath, hits);
 }
 
+function isInsideDirectory(directory: string, target: string): boolean {
+  const relative = path.relative(directory, path.resolve(directory, target));
+  return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
+export function findBlockedBashWriteTarget(command: string, cwd: string): string | undefined {
+  return findHeredocFileTargets(command).find((target) => {
+    if (/[$`]/.test(target) || target.startsWith('~')) return false;
+    if (!getCommentTokens(target)) return false;
+    return isInsideDirectory(cwd, target);
+  });
+}
+
+export function bashWriteBlockReason(target: string): string {
+  return [
+    `This bash command writes file contents to ${target} via a shell redirect or tee.`,
+    'Use the write tool (or the edit tool to change an existing file) so comment checks apply.',
+    'Nothing was run.',
+  ].join(' ');
+}
+
 export default function (pi: ExtensionAPI): void {
   const pendingStrips = new Map<string, PendingStrip>();
 
@@ -569,6 +591,15 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on('tool_call', async (event, ctx) => {
+    if (isToolCallEventType('bash', event)) {
+      const config = await resolveCleanCommentsConfig(ctx.cwd);
+      if (config.bashFileWrites !== 'block') return undefined;
+
+      const target = findBlockedBashWriteTarget(event.input.command, ctx.cwd);
+      if (!target) return undefined;
+      return { block: true, reason: bashWriteBlockReason(target) };
+    }
+
     let strip: (threshold: number, bypassWording: string | undefined) => PendingStrip | undefined;
     if (isToolCallEventType('write', event)) {
       strip = (threshold, bypassWording): PendingStrip | undefined =>
