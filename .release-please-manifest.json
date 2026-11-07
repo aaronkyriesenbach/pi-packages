@@ -1,5 +1,5 @@
 {
   "packages/pi-package-manager": "0.6.0",
-  "packages/pi-clean-comments": "0.6.0",
+  "packages/pi-clean-comments": "0.7.0",
   "packages/pi-substitute-commands": "1.2.0"
 }
