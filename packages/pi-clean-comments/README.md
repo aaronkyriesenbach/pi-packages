@@ -70,12 +70,12 @@ hardcoded defaults. Project values win over user values on a per-key basis.
 }
 ```
 
-| Key                       | Default   | Meaning                                                                                                                                 |
-| ------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `enforcement`             | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.                                        |
-| `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped; `0` strips every comment. Independent of nudge's severity tiers. |
-| `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.                                  |
-| `bashFileWrites`          | `"block"` | `"block"` rejects `bash` calls that write a heredoc into a source file; `"off"` lets them through. Independent of `enforcement`.        |
+| Key                       | Default   | Meaning                                                                                                                                             |
+| ------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enforcement`             | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.                                                    |
+| `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped; `0` strips every comment. Independent of nudge's severity tiers.             |
+| `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.                                              |
+| `bashFileWrites`          | `"block"` | `"block"` rejects `bash` calls that write a source file via a heredoc or an inline script; `"off"` lets them through. Independent of `enforcement`. |
 
 Project config overrides user config on a per-key basis; keys missing from
 both fall back to the defaults above.
@@ -86,22 +86,32 @@ in the same call still lands. The agent is told exactly which lines were
 stripped. Blocks at or under `threshold` are untouched and still receive
 the usual severity-scaled nudge.
 
-### Heredoc file writes via `bash`
+### File writes via `bash`
 
-Agents often write whole files with `cat > file.yaml <<'EOF' … EOF`, which
-never reaches the `write`/`edit` checks. With `bashFileWrites: "block"`
-(the default), a `bash` call is rejected, unrun and unmodified, when it
-sends a heredoc into a file with `>`, `>>` or `tee` and the target's
-extension has registered comment syntax. The agent is told to resubmit
-through `write`/`edit`.
+Agents often write files through `bash` — `cat > file.yaml <<'EOF' … EOF`, or
+an inline `python3 - <<'E' … open(p, 'w').write(s) … E` — which never
+reaches the `write`/`edit` checks. With `bashFileWrites: "block"` (the
+default), a `bash` call is rejected, unrun and unmodified, when:
+
+- it sends a heredoc into a file with `>`, `>>` or `tee`, or
+- it runs an inline `python`, `node`/`bun`/`deno`/`tsx` or `ruby` script that
+  calls a file-write API (`open(…, 'w')`, `Path.write_text`,
+  `fs.writeFileSync`, `File.write`, …),
+
+and the target's extension has registered comment syntax. Script targets
+are every path-like string literal in the command (`'src/a.ts'`), since the
+write call usually takes a variable. The agent is told to resubmit through
+`write`/`edit`.
 
 Allowed through: unknown extensions (`.md`, `.json`, none), targets the
-scan can't resolve (`$VAR`, `$(…)`, `~/…`), paths outside the project,
-and heredocs that aren't file writes (`git commit -m "$(cat <<EOF …)"`,
-`kubectl apply -f - <<EOF`). Other write methods (`printf > file`, `sed -i`,
-`python -c`) aren't detected. See
-`docs/adr/0004-block-bash-heredoc-file-writes.md` for why this blocks
-instead of parsing and rewriting.
+scan can't resolve (`$VAR`, `$(…)`, `~/…`, `sys.argv`), paths outside the
+project, and heredocs that aren't file writes (`git commit -m "$(cat <<EOF …)"`,
+`kubectl apply -f - <<EOF`). Scripts that read one source file and write an
+unrelated one are blocked too (the heuristic can't tell which literal is the
+write target). Other write methods (`printf > file`, `sed -i`, scripts run
+from a file) aren't detected. See
+`docs/adr/0004-block-bash-file-writes.md` for why this blocks instead of
+parsing and rewriting.
 
 ### Agent-requested comment exceptions
 

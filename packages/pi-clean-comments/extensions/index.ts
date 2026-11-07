@@ -11,7 +11,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { findHeredocFileTargets } from './bash-file-writes.js';
+import { findBashFileWriteTargets } from './bash-file-writes.js';
 import { resolveCleanCommentsConfig } from './config.js';
 import { createRequestCommentExceptionTool } from './request-comment-exception.js';
 
@@ -565,7 +565,7 @@ function isInsideDirectory(directory: string, target: string): boolean {
 }
 
 export function findBlockedBashWriteTarget(command: string, cwd: string): string | undefined {
-  return findHeredocFileTargets(command).find((target) => {
+  return findBashFileWriteTargets(command).find((target) => {
     if (/[$`]/.test(target) || target.startsWith('~')) return false;
     if (!getCommentTokens(target)) return false;
     return isInsideDirectory(cwd, target);
@@ -574,7 +574,7 @@ export function findBlockedBashWriteTarget(command: string, cwd: string): string
 
 export function bashWriteBlockReason(target: string): string {
   return [
-    `This bash command writes file contents to ${target} via a shell redirect or tee.`,
+    `This bash command writes file contents to ${target} via a shell redirect, tee, or an inline script.`,
     'Use the write tool (or the edit tool to change an existing file) so comment checks apply.',
     'Nothing was run.',
   ].join(' ');

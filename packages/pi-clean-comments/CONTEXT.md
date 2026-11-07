@@ -43,8 +43,15 @@ would otherwise strip land anyway, requiring the human to approve, deny,
 or request changes before it can be applied.
 _Avoid_: exception request, override.
 
-**Heredoc file write**:
-A `bash` call that sends a heredoc into a file via `>`, `>>` or `tee`. Blocked
-(not parsed or rewritten) when the target's extension has registered comment
-syntax, so the content is resubmitted through `write`/`edit`.
-_Avoid_: shell write, bash write.
+**Bash file write**:
+A `bash` call that writes a file other than through `write`/`edit`: either a
+heredoc sent into a file via `>`, `>>` or `tee`, or an inline interpreter
+script (Python, Node, Ruby) that calls a file-write API. Blocked (not parsed
+or rewritten) when a target's extension has registered comment syntax, so the
+content is resubmitted through `write`/`edit`.
+_Avoid_: shell write, heredoc file write.
+
+**Script target**:
+A path-like string literal found anywhere in an inline interpreter script that
+also contains a write call. Not resolved to the call's actual argument, so a
+script that merely mentions a source file while writing another is blocked.

@@ -1,3 +1,8 @@
+interface InterpreterWriteRule {
+  interpreter: RegExp;
+  writes: RegExp[];
+}
+
 interface Heredoc {
   delimiter: string;
   stripsTabs: boolean;
@@ -62,4 +67,50 @@ export function findHeredocFileTargets(command: string): string[] {
   }
 
   return targets;
+}
+
+// Interpreter scripts name their targets through variables (`p = 'a.ts'; open(p, 'w')`), so
+// instead of resolving the path we look for any write call plus any path-like string literal.
+// This over-blocks scripts that read one file and write another, which costs the agent a retry.
+const INTERPRETER_WRITE_RULES: InterpreterWriteRule[] = [
+  {
+    interpreter: /\bpython[\d.]*\b/,
+    writes: [
+      /\bopen\s*\([^\n]*?['"][rwabxt+]*[wax+][rwabxt+]*['"]\s*[,)]/,
+      /\.write_(?:text|bytes)\s*\(/,
+    ],
+  },
+  {
+    interpreter: /\b(?:node|bun|deno|tsx)\b/,
+    writes: [/\b(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream)\s*\(/],
+  },
+  {
+    interpreter: /\bruby\b/,
+    writes: [/\b(?:File|IO)\.(?:write|binwrite)\s*\(/, /\bFile\.open\s*\([^\n]*?['"][wa]\+?b?['"]/],
+  },
+];
+
+// Scanned per quote type, not as one alternation: `python -c "open('a.ts', 'w')"` nests single-quoted
+// literals inside a double-quoted shell argument, and an alternation would swallow them whole.
+const STRING_LITERALS = [/'([^'\n]*)'/g, /"([^"\n]*)"/g, /`([^`\n]*)`/g];
+
+const PATH_LITERAL = /^(?![a-z][a-z\d+.-]*:\/\/)[^\s*?<>|{}]+\.[A-Za-z][\w]*$/i;
+
+function findPathLiterals(command: string): string[] {
+  return STRING_LITERALS.flatMap((pattern) => [...command.matchAll(pattern)])
+    .filter((match) => PATH_LITERAL.test(match[1] ?? ''))
+    .sort((a, b) => a.index - b.index)
+    .map((match) => match[1] ?? '');
+}
+
+export function findInterpreterFileTargets(command: string): string[] {
+  const writesFiles = INTERPRETER_WRITE_RULES.some(
+    ({ interpreter, writes }) =>
+      interpreter.test(command) && writes.some((write) => write.test(command)),
+  );
+  return writesFiles ? findPathLiterals(command) : [];
+}
+
+export function findBashFileWriteTargets(command: string): string[] {
+  return [...findHeredocFileTargets(command), ...findInterpreterFileTargets(command)];
 }

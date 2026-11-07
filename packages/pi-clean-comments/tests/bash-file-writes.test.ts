@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { findHeredocFileTargets } from '../extensions/bash-file-writes.js';
+import {
+  findBashFileWriteTargets,
+  findHeredocFileTargets,
+  findInterpreterFileTargets,
+} from '../extensions/bash-file-writes.js';
 
 describe('findHeredocFileTargets', () => {
   it.each([
@@ -58,5 +62,59 @@ describe('findHeredocFileTargets', () => {
   it('handles several heredocs on one line', () => {
     const command = 'cat > a.yaml <<ONE; cat <<TWO\none\nONE\ntwo\nTWO';
     expect(findHeredocFileTargets(command)).toEqual(['a.yaml']);
+  });
+});
+
+describe('findInterpreterFileTargets', () => {
+  it.each([
+    [`python3 -c "open('a.ts', 'w').write('x')"`, ['a.ts']],
+    ["python - <<'E'\np='a.ts'; s=open(p).read()\nopen(p,'w').write(s)\nE", ['a.ts']],
+    [`python3 -c "open('a.ts', mode='w')"`, ['a.ts']],
+    [`python3 -c "open('a.ts', 'ab')"`, ['a.ts']],
+    [`python3 -c "open(os.path.join(d, 'a.ts'), 'w')"`, ['a.ts']],
+    [`uv run python -c "Path('src/a.ts').write_text('x')"`, ['src/a.ts']],
+    [`python3 -c "Path('a.bin').write_bytes(b'')"`, ['a.bin']],
+    [`node -e "fs.writeFileSync('a.ts', 'x')"`, ['a.ts']],
+    [`bun -e "await fs.promises.appendFile('a.sh', 'x')"`, ['a.sh']],
+    ['node -e "fs.createWriteStream(`a.ts`)"', ['a.ts']],
+    [`ruby -e "File.write('a.rb', 'x')"`, ['a.rb']],
+    [`ruby -e "File.open('a.rb', 'w') { |f| f << 1 }"`, ['a.rb']],
+  ])('finds the path literals in %j', (command, expected) => {
+    expect(findInterpreterFileTargets(command)).toEqual(expected);
+  });
+
+  it('finds every path literal in a multi-file script, in source order', () => {
+    const command = [
+      "cd apps/arr && python3 - <<'E'",
+      "p='configarr.ts'; s=open(p).read()",
+      `s=s.replace('''a(\n  "api-key",\n)''','''b''')`,
+      "open(p,'w').write(s)",
+      "p='configarr.config.ts'; s=open(p).read()",
+      `s=s.replace('  nzbgeek: "K",\\n','  nzbLife: "L",\\n')`,
+      "open(p,'w').write(s)",
+      'E',
+    ].join('\n');
+    expect(findInterpreterFileTargets(command)).toEqual(['configarr.ts', 'configarr.config.ts']);
+  });
+
+  it.each([
+    ['a read-only python script', `python3 -c "print(open('a.ts').read())"`],
+    ['a python script that does not write', `python3 -c "print('a.ts')"`],
+    ['a write with no path literal', `python3 -c "open(sys.argv[1], 'w')"`],
+    ['a write call with no interpreter', `echo "open('a.ts', 'w')"`],
+    ["another language's write call", `python3 -c "fs.writeFileSync('a.ts')"`],
+    ['a url literal', `python3 -c "open(p, 'w'); u = 'https://example.com/a.ts'"`],
+    ['a glob literal', `python3 -c "open(p, 'w'); g = 'src/*.ts'"`],
+    ['a non-path literal', `python3 -c "open(p, 'w'); s = 'hello world.'"`],
+    ['pytest', 'python3 -m pytest tests/test_a.py'],
+  ])('finds nothing for %s', (_label, command) => {
+    expect(findInterpreterFileTargets(command)).toEqual([]);
+  });
+});
+
+describe('findBashFileWriteTargets', () => {
+  it('combines heredoc and interpreter targets', () => {
+    const command = `cat > a.yaml <<EOF\nx\nEOF\npython3 -c "open('b.ts', 'w')"`;
+    expect(findBashFileWriteTargets(command)).toEqual(['a.yaml', 'b.ts']);
   });
 });

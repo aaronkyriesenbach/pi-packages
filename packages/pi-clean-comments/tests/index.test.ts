@@ -1164,8 +1164,17 @@ describe('findBlockedBashWriteTarget', () => {
     ['a heredoc piped elsewhere', 'kubectl apply -f - <<EOF\na: 1\nEOF'],
     ['a git commit message heredoc', 'git commit -m "$(cat <<\'EOF\'\nfix: x\nEOF\n)"'],
     ['a plain redirect with no heredoc', 'echo hi > a.yaml'],
+    ['a python write to an extension with no comment syntax', `python3 -c "open('a.md', 'w')"`],
+    ['a python write outside the project', `python3 -c "open('/tmp/a.ts', 'w')"`],
+    ['a python read', `python3 -c "print(open('a.ts').read())"`],
   ])('allows %s', (_label, command) => {
     expect(findBlockedBashWriteTarget(command, CWD)).toBeUndefined();
+  });
+
+  it('returns a project file target written by an inline interpreter script', () => {
+    const python = "python3 - <<'E'\np='src/a.ts'; s=open(p).read()\nopen(p,'w').write(s)\nE";
+    expect(findBlockedBashWriteTarget(python, CWD)).toBe('src/a.ts');
+    expect(findBlockedBashWriteTarget(`node -e "fs.writeFileSync('a.ts', 'x')"`, CWD)).toBe('a.ts');
   });
 
   it('does not treat a sibling directory sharing a prefix with cwd as inside the project', () => {
@@ -1185,7 +1194,7 @@ describe('bashWriteBlockReason', () => {
   });
 });
 
-describe('bash tool_call: blocking heredoc file writes', () => {
+describe('bash tool_call: blocking file writes', () => {
   function buildBashCall(command: string): ToolCallEvent {
     return {
       type: 'tool_call',
@@ -1203,6 +1212,25 @@ describe('bash tool_call: blocking heredoc file writes', () => {
 
     const result = await getCallHandler()(buildBashCall(HEREDOC_WRITE), buildFakeCtx());
     expect(result).toEqual({ block: true, reason: bashWriteBlockReason('ci.yaml') });
+  });
+
+  it('blocks an inline python script that writes a source file', async () => {
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const command = "python3 - <<'E'\np='ci.yaml'; s=open(p).read()\nopen(p,'w').write(s)\nE";
+    const result = await getCallHandler()(buildBashCall(command), buildFakeCtx());
+    expect(result).toEqual({ block: true, reason: bashWriteBlockReason('ci.yaml') });
+  });
+
+  it('lets an inline python script through when bashFileWrites is off', async () => {
+    fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ bashFileWrites: 'off' }));
+    const { pi, getCallHandler } = buildFakeApi();
+    defaultExport(pi);
+
+    const command = `python3 -c "open('ci.yaml', 'w')"`;
+    const result = await getCallHandler()(buildBashCall(command), buildFakeCtx());
+    expect(result).toBeUndefined();
   });
 
   it('blocks under nudge mode as well as gate mode', async () => {
