@@ -123,6 +123,20 @@ describe('resolveCleanCommentsConfig', () => {
     });
   });
 
+  it('accepts a threshold of 0 so gate mode can strip every comment', async () => {
+    fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ enforcement: 'gate', threshold: 0 }));
+
+    await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({ threshold: 0 });
+  });
+
+  it.each([-1, 1.5, '3'])('drops an invalid threshold of %j', async (threshold) => {
+    fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ threshold }));
+
+    await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
+      threshold: DEFAULT_CONFIG.threshold,
+    });
+  });
+
   it('falls back to defaults when a config file is not a JSON object', async () => {
     fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify(['nudge', 2]));
 

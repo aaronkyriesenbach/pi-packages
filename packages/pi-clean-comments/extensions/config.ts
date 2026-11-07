@@ -35,7 +35,7 @@ function isEnforcement(value: unknown): value is Enforcement {
 }
 
 function isValidThreshold(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
 function isBoolean(value: unknown): value is boolean {

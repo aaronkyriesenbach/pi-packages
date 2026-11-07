@@ -69,11 +69,11 @@ hardcoded defaults. Project values win over user values on a per-key basis.
 }
 ```
 
-| Key                       | Default   | Meaning                                                                                                       |
-| ------------------------- | --------- | ------------------------------------------------------------------------------------------------------------- |
-| `enforcement`             | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.              |
-| `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped. Independent of nudge's severity tiers. |
-| `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.        |
+| Key                       | Default   | Meaning                                                                                                                                 |
+| ------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `enforcement`             | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.                                        |
+| `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped; `0` strips every comment. Independent of nudge's severity tiers. |
+| `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.                                  |
 
 Project config overrides user config on a per-key basis; keys missing from
 both fall back to the defaults above.

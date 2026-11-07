@@ -887,6 +887,13 @@ describe('stripOverThresholdBlocks', () => {
     ]);
   });
 
+  it('strips every comment, including single lines, when the threshold is 0', () => {
+    const content = ['// one', 'const a = 1;', '// 1', '// 2', 'const b = 2;'].join('\n');
+    const result = stripOverThresholdBlocks('foo.ts', content, 0);
+    expect(result?.content).toBe(['const a = 1;', 'const b = 2;'].join('\n'));
+    expect(result?.strippedBlocks).toHaveLength(2);
+  });
+
   it('leaves a block at or under the threshold untouched', () => {
     const content = ['// 1', '// 2', 'const x = 1;'].join('\n');
     const result = stripOverThresholdBlocks('foo.ts', content, 2);
