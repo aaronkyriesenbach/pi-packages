@@ -10,7 +10,7 @@
   "author": "Aaron Ky-Riesenbach",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/aaronkyriesenbach/pi-packages.git",
+    "url": "git+https://github.com/aaronkyriesenbach/pi-packages.git",
     "directory": "packages/pi-package-manager"
   },
   "homepage": "https://github.com/aaronkyriesenbach/pi-packages/tree/master/packages/pi-package-manager",

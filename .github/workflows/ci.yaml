@@ -10,7 +10,8 @@ jobs:
       packages: ${{ steps.set.outputs.packages }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+      # v4.0.2
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706
         id: filter
         with:
           filters: |
@@ -30,8 +31,10 @@ jobs:
           if [ "${{ steps.filter.outputs.pi-clean-comments }}" = "true" ]; then
             packages=$(echo "$packages" | jq -c '. + ["pi-clean-comments"]')
           fi
-          if [ "${{ steps.filter.outputs.pi-substitute-commands }}" = "true" ]; then
-            packages=$(echo "$packages" | jq -c '. + ["pi-substitute-commands"]')
+          if [ "${{ steps.filter.outputs.pi-substitute-commands }}" \
+            = "true" ]; then
+            packages=$(echo "$packages" \
+              | jq -c '. + ["pi-substitute-commands"]')
           fi
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
 
@@ -91,8 +94,6 @@ jobs:
     uses: aaronkyriesenbach/workflows/.github/workflows/bun-build-push.yaml@master
     with:
       working-directory: ${{ matrix.path }}
-    secrets:
-      npm-token: ${{ secrets.NPM_TOKEN }}
     permissions:
       contents: read
       id-token: write
@@ -113,8 +114,6 @@ jobs:
     uses: aaronkyriesenbach/workflows/.github/workflows/bun-build-push.yaml@master
     with:
       working-directory: packages/${{ matrix.package }}
-    secrets:
-      npm-token: ${{ secrets.NPM_TOKEN }}
     permissions:
       contents: read
       id-token: write
