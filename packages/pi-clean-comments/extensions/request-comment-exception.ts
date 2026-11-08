@@ -76,6 +76,7 @@ function buildPromptTitle(input: RequestCommentExceptionInput): string {
 
 export interface RequestCommentExceptionToolOptions {
   operations?: EditOperations;
+  timeoutSeconds?: number;
 }
 
 export function createRequestCommentExceptionTool(
@@ -104,7 +105,26 @@ export function createRequestCommentExceptionTool(
         throw new Error('request_comment_exception requires a non-empty reason.');
       }
 
-      const decision = await ctx.ui.select(buildPromptTitle(params), CHOICES);
+      const timeoutMs = options.timeoutSeconds ? options.timeoutSeconds * 1000 : undefined;
+      const dialogOptions = timeoutMs === undefined ? undefined : { timeout: timeoutMs };
+      const startedAt = Date.now();
+      const decision = await ctx.ui.select(buildPromptTitle(params), CHOICES, dialogOptions);
+
+      if (
+        decision === undefined &&
+        timeoutMs !== undefined &&
+        Date.now() - startedAt >= timeoutMs
+      ) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: "The human didn't respond in time. Proceed without the comment (shorten it to fit the gate-mode threshold or drop it). You may flag it to the human at the end.",
+            },
+          ],
+          details: undefined,
+        };
+      }
 
       if (decision === APPROVE) {
         const editToolDefinition = createEditToolDefinition(
@@ -121,7 +141,11 @@ export function createRequestCommentExceptionTool(
       }
 
       if (decision === REQUEST_CHANGES) {
-        const feedback = await ctx.ui.input('What should change before this comment can land?');
+        const feedback = await ctx.ui.input(
+          'What should change before this comment can land?',
+          undefined,
+          dialogOptions,
+        );
         const trimmedFeedback = feedback?.trim();
         return {
           content: [

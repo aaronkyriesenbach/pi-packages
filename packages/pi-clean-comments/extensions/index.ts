@@ -586,7 +586,9 @@ export default function (pi: ExtensionAPI): void {
   pi.on('session_start', async (_event, ctx) => {
     const config = await resolveCleanCommentsConfig(ctx.cwd);
     if (!config.allowAgentBypassRequest || !ctx.hasUI) return undefined;
-    pi.registerTool(createRequestCommentExceptionTool());
+    pi.registerTool(
+      createRequestCommentExceptionTool({ timeoutSeconds: config.bypassRequestTimeoutSeconds }),
+    );
     return undefined;
   });
 

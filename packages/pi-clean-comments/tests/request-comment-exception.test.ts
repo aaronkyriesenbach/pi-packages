@@ -134,6 +134,32 @@ describe('request_comment_exception', () => {
     expect(operations.writeFile).not.toHaveBeenCalled();
   });
 
+  it('tells the agent to proceed without the comment when the human times out', async () => {
+    vi.useFakeTimers();
+    const operations = buildFakeOperations('// old\n');
+    const tool = createRequestCommentExceptionTool({ operations, timeoutSeconds: 30 });
+    const { ctx, select } = buildFakeCtx();
+    select.mockImplementation(() => {
+      vi.advanceTimersByTime(30_000);
+      return Promise.resolve(undefined);
+    });
+
+    const result = await tool.execute(
+      'call-1',
+      { path: 'foo.ts', edits: [{ oldText: '// old', newText: '// new' }], reason: 'Needed.' },
+      undefined,
+      undefined,
+      ctx,
+    );
+    vi.useRealTimers();
+
+    expect(select).toHaveBeenCalledWith(expect.any(String), expect.any(Array), {
+      timeout: 30_000,
+    });
+    expect(textOf(result.content)).toMatch(/didn't respond in time/i);
+    expect(operations.writeFile).not.toHaveBeenCalled();
+  });
+
   it('treats a dismissed dialog (no answer) the same as a denial', async () => {
     const operations = buildFakeOperations('// old\n');
     const tool = createRequestCommentExceptionTool({ operations });

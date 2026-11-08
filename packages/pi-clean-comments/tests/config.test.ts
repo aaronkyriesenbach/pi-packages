@@ -58,6 +58,7 @@ describe('resolveCleanCommentsConfig', () => {
       threshold: 5,
       allowAgentBypassRequest: true,
       bashFileWrites: 'block',
+      bypassRequestTimeoutSeconds: 300,
     });
   });
 
@@ -72,6 +73,7 @@ describe('resolveCleanCommentsConfig', () => {
       threshold: 8,
       allowAgentBypassRequest: true,
       bashFileWrites: 'block',
+      bypassRequestTimeoutSeconds: 300,
     });
   });
 
@@ -84,6 +86,7 @@ describe('resolveCleanCommentsConfig', () => {
       threshold: 3,
       allowAgentBypassRequest: false,
       bashFileWrites: 'block',
+      bypassRequestTimeoutSeconds: 300,
     });
   });
 
@@ -96,6 +99,7 @@ describe('resolveCleanCommentsConfig', () => {
       threshold: 8,
       allowAgentBypassRequest: true,
       bashFileWrites: 'block',
+      bypassRequestTimeoutSeconds: 300,
     });
   });
 
@@ -108,6 +112,7 @@ describe('resolveCleanCommentsConfig', () => {
       threshold: DEFAULT_CONFIG.threshold,
       allowAgentBypassRequest: DEFAULT_CONFIG.allowAgentBypassRequest,
       bashFileWrites: DEFAULT_CONFIG.bashFileWrites,
+      bypassRequestTimeoutSeconds: DEFAULT_CONFIG.bypassRequestTimeoutSeconds,
     });
   });
 
@@ -126,6 +131,7 @@ describe('resolveCleanCommentsConfig', () => {
       threshold: DEFAULT_CONFIG.threshold,
       allowAgentBypassRequest: true,
       bashFileWrites: DEFAULT_CONFIG.bashFileWrites,
+      bypassRequestTimeoutSeconds: DEFAULT_CONFIG.bypassRequestTimeoutSeconds,
     });
   });
 
@@ -146,6 +152,7 @@ describe('resolveCleanCommentsConfig', () => {
   it('defaults bashFileWrites to block', async () => {
     await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
       bashFileWrites: 'block',
+      bypassRequestTimeoutSeconds: 300,
     });
   });
 
@@ -158,6 +165,7 @@ describe('resolveCleanCommentsConfig', () => {
     fsStore.set(PROJECT_CONFIG_PATH, JSON.stringify({ bashFileWrites: 'block' }));
     await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
       bashFileWrites: 'block',
+      bypassRequestTimeoutSeconds: 300,
     });
   });
 
@@ -166,6 +174,7 @@ describe('resolveCleanCommentsConfig', () => {
 
     await expect(resolveCleanCommentsConfig(CWD)).resolves.toMatchObject({
       bashFileWrites: 'block',
+      bypassRequestTimeoutSeconds: 300,
     });
   });
 

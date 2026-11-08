@@ -66,7 +66,8 @@ hardcoded defaults. Project values win over user values on a per-key basis.
   "enforcement": "gate",
   "threshold": 2,
   "allowAgentBypassRequest": false,
-  "bashFileWrites": "block"
+  "bashFileWrites": "block",
+  "bypassRequestTimeoutSeconds": 300
 }
 ```
 
@@ -76,6 +77,7 @@ hardcoded defaults. Project values win over user values on a per-key basis.
 | `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped; `0` strips every comment. Independent of nudge's severity tiers.             |
 | `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.                                              |
 | `bashFileWrites`          | `"block"` | `"block"` rejects `bash` calls that write a source file via a heredoc or an inline script; `"off"` lets them through. Independent of `enforcement`. |
+| `bypassRequestTimeoutSeconds` | `300` | How long `request_comment_exception` waits for the human before telling the agent to proceed without the comment (and flag it at the end); `0` waits forever. |
 
 Project config overrides user config on a per-key basis; keys missing from
 both fall back to the defaults above.

@@ -13,6 +13,7 @@ export interface CleanCommentsConfig {
   threshold: number;
   allowAgentBypassRequest: boolean;
   bashFileWrites: BashFileWrites;
+  bypassRequestTimeoutSeconds: number;
 }
 
 type PartialCleanCommentsConfig = Partial<CleanCommentsConfig>;
@@ -24,6 +25,7 @@ export const DEFAULT_CONFIG: CleanCommentsConfig = {
   threshold: 2,
   allowAgentBypassRequest: false,
   bashFileWrites: 'block',
+  bypassRequestTimeoutSeconds: 300,
 };
 
 export function getProjectConfigPath(cwd: string): string {
@@ -44,6 +46,10 @@ function isBashFileWrites(value: unknown): value is BashFileWrites {
 
 function isValidThreshold(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isValidTimeoutSeconds(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
 function isBoolean(value: unknown): value is boolean {
@@ -76,6 +82,9 @@ async function readConfigFile(path: string): Promise<PartialCleanCommentsConfig>
     result.allowAgentBypassRequest = record.allowAgentBypassRequest;
   }
   if (isBashFileWrites(record.bashFileWrites)) result.bashFileWrites = record.bashFileWrites;
+  if (isValidTimeoutSeconds(record.bypassRequestTimeoutSeconds)) {
+    result.bypassRequestTimeoutSeconds = record.bypassRequestTimeoutSeconds;
+  }
   return result;
 }
 
@@ -94,5 +103,9 @@ export async function resolveCleanCommentsConfig(cwd: string): Promise<CleanComm
       DEFAULT_CONFIG.allowAgentBypassRequest,
     bashFileWrites:
       projectConfig.bashFileWrites ?? userConfig.bashFileWrites ?? DEFAULT_CONFIG.bashFileWrites,
+    bypassRequestTimeoutSeconds:
+      projectConfig.bypassRequestTimeoutSeconds ??
+      userConfig.bypassRequestTimeoutSeconds ??
+      DEFAULT_CONFIG.bypassRequestTimeoutSeconds,
   };
 }
