@@ -1,7 +1,7 @@
 {
   "name": "@aaronkyriesenbach/pi-package-manager",
   "version": "0.6.0",
-  "description": "Pi package manager — list, enable/disable, and auto-update installed Pi packages from within a session",
+  "description": "Pi package manager \u2014 list, enable/disable, and auto-update installed Pi packages from within a session",
   "keywords": [
     "pi-package",
     "pi-extension"
@@ -37,13 +37,10 @@
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "bun run typecheck && bun run lint && bun run format:check && bun run test:coverage"
+    "prepublishOnly": "bun run typecheck && bun run test:coverage"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -55,7 +52,6 @@
     "@earendil-works/pi-ai": "^0.80.10",
     "@earendil-works/pi-coding-agent": "^0.80.10",
     "@earendil-works/pi-tui": "^0.80.10",
-    "globals": "^17.7.0",
     "typebox": "^1.1.38"
   }
 }

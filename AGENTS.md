@@ -21,3 +21,11 @@ package extends it and only adds justified, minimal per-package deltas.
 CI (`ci.yaml`) change-detects which packages' files changed via
 `dorny/paths-filter` and scopes typecheck/lint/test/format checks to those
 packages only.
+
+### Lint and format
+
+`lint`, `lint:fix`, `format`, and `format:check` live only in the root
+`package.json` and cover every package (one root `eslint.config.js`, with a
+block per package for its tsconfig and justified rule deltas). A lefthook
+`pre-commit` hook (`lefthook.yml`) runs `lint` and `format:check`; install it
+with `lefthook install`.

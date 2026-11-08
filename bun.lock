@@ -12,6 +12,7 @@
         "@vitest/coverage-v8": "^2.1.8",
         "eslint": "^9.18.0",
         "eslint-config-prettier": "^9.1.0",
+        "globals": "^17.7.0",
         "prettier": "^3.4.2",
         "typescript": "^5.7.2",
         "vitest": "^2.1.8",
@@ -19,7 +20,7 @@
     },
     "packages/pi-clean-comments": {
       "name": "@aaronkyriesenbach/pi-clean-comments",
-      "version": "0.4.0",
+      "version": "0.8.0",
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "^0.80.10",
         "typebox": "^1.1.38",
@@ -31,12 +32,11 @@
     },
     "packages/pi-package-manager": {
       "name": "@aaronkyriesenbach/pi-package-manager",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "devDependencies": {
         "@earendil-works/pi-ai": "^0.80.10",
         "@earendil-works/pi-coding-agent": "^0.80.10",
         "@earendil-works/pi-tui": "^0.80.10",
-        "globals": "^17.7.0",
         "typebox": "^1.1.38",
       },
       "peerDependencies": {
@@ -48,7 +48,7 @@
     },
     "packages/pi-substitute-commands": {
       "name": "@aaronkyriesenbach/pi-substitute-commands",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "dependencies": {
         "unbash": "^4.0.0",
       },

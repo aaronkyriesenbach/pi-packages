@@ -1,1 +1,3 @@
-packages/*/CHANGELOG.md
+**/CHANGELOG.md
+**/coverage/
+**/dist/

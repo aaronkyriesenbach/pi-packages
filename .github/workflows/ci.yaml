@@ -57,9 +57,19 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: .
       - run: bun run typecheck
+      - run: bun run test:coverage
+
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run format:check
-      - run: bun run test:coverage
 
   # NOTE: release-please's own PR (and its merge, when triggered via the
   # merge button/API rather than a raw push) is authored by GITHUB_TOKEN,
@@ -82,11 +92,12 @@ jobs:
   # `paths-released` so publishing one package's release can never touch
   # another package's build/publish path.
   master-release:
-    needs: [checks, release-please]
+    needs: [checks, lint, release-please]
     if: >
       always() && github.ref_name == 'master' &&
       needs.release-please.outputs.paths-released != '[]' &&
-      needs.checks.result == 'success'
+      needs.checks.result == 'success' &&
+      needs.lint.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -102,11 +113,12 @@ jobs:
   # for that package, scoped by the same change-detection output the
   # checks job uses so an untouched package is never rebuilt/republished.
   branch-preview:
-    needs: [changes, checks]
+    needs: [changes, checks, lint]
     if: >
       always() && github.ref_name != 'master' &&
       needs.changes.outputs.packages != '[]' &&
-      needs.checks.result == 'success'
+      needs.checks.result == 'success' &&
+      needs.lint.result == 'success'
     strategy:
       fail-fast: false
       matrix:

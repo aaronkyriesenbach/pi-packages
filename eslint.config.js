@@ -1,12 +1,24 @@
+import path from 'node:path';
 import js from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import globals from 'globals';
 
-// Strict, shared base for every package in this monorepo. A package's own
-// eslint.config.js imports this array, spreads it, and appends only the
-// `languageOptions.parserOptions.project` block (which must point at its own
-// tsconfig.json) plus any justified per-package rule deltas.
+const packageConfig = (name, { globals: pkgGlobals = {}, rules = {} } = {}) => ({
+  files: [`packages/${name}/**/*.ts`],
+  languageOptions: {
+    parserOptions: {
+      project: './tsconfig.json',
+      tsconfigRootDir: path.join(import.meta.dirname, 'packages', name),
+    },
+    globals: pkgGlobals,
+  },
+  rules,
+});
+
+const noUndefOff = { 'no-undef': 'off' };
+
 export default [
   js.configs.recommended,
   {
@@ -27,8 +39,17 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'error',
     },
   },
+  packageConfig('pi-clean-comments', { rules: noUndefOff }),
+  packageConfig('pi-package-manager', {
+    globals: globals.node,
+    rules: {
+      ...noUndefOff,
+      '@typescript-eslint/no-empty-function': ['error', { allow: ['arrowFunctions'] }],
+    },
+  }),
+  packageConfig('pi-substitute-commands'),
   eslintConfigPrettier,
   {
-    ignores: ['node_modules/**', 'coverage/**'],
+    ignores: ['vitest.config.base.ts', '**/node_modules/**', '**/coverage/**', '**/dist/**'],
   },
 ];

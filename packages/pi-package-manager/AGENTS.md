@@ -4,8 +4,8 @@
 
 - **Build**: `bun run build` — `tsc --project tsconfig.build.json` → `dist/`
 - **Type-check**: `bun run typecheck` — `tsc --noEmit` (build projects only, broader include)
-- **Lint**: `bun run lint` — `eslint .`
-- **Format**: `bun run format` — `prettier --write .` (check only: `bun run format:check`)
+- **Lint** (run from repo root): `bun run lint` — `eslint .`
+- **Format** (run from repo root): `bun run format` — `prettier --write .` (check only: `bun run format:check`)
 
 ### Test
 

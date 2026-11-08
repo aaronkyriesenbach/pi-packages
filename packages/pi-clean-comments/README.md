@@ -71,13 +71,13 @@ hardcoded defaults. Project values win over user values on a per-key basis.
 }
 ```
 
-| Key                       | Default   | Meaning                                                                                                                                             |
-| ------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enforcement`             | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.                                                    |
-| `threshold`               | `2`       | Max lines a comment block may reach under `gate` before it's stripped; `0` strips every comment. Independent of nudge's severity tiers.             |
-| `allowAgentBypassRequest` | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.                                              |
-| `bashFileWrites`          | `"block"` | `"block"` rejects `bash` calls that write a source file via a heredoc or an inline script; `"off"` lets them through. Independent of `enforcement`. |
-| `bypassRequestTimeoutSeconds` | `300` | How long `request_comment_exception` waits for the human before telling the agent to proceed without the comment (and flag it at the end); `0` waits forever. |
+| Key                           | Default   | Meaning                                                                                                                                                       |
+| ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enforcement`                 | `"nudge"` | `"nudge"` only reminds; `"gate"` also strips any comment block over `threshold` before it lands.                                                              |
+| `threshold`                   | `2`       | Max lines a comment block may reach under `gate` before it's stripped; `0` strips every comment. Independent of nudge's severity tiers.                       |
+| `allowAgentBypassRequest`     | `false`   | Under `gate`, whether the strip note tells the agent it can ask a human to reinstate a stripped block.                                                        |
+| `bashFileWrites`              | `"block"` | `"block"` rejects `bash` calls that write a source file via a heredoc or an inline script; `"off"` lets them through. Independent of `enforcement`.           |
+| `bypassRequestTimeoutSeconds` | `300`     | How long `request_comment_exception` waits for the human before telling the agent to proceed without the comment (and flag it at the end); `0` waits forever. |
 
 Project config overrides user config on a per-key basis; keys missing from
 both fall back to the defaults above.
@@ -162,8 +162,6 @@ Or add it to `.pi/settings.json` / `~/.pi/agent/settings.json`:
 ```bash
 bun install
 bun run typecheck
-bun run lint
-bun run format:check
 bun run test:coverage
 ```
 

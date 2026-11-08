@@ -77,8 +77,6 @@ Or add it to `.pi/settings.json` / `~/.pi/agent/settings.json`:
 ```bash
 bun install
 bun run typecheck
-bun run lint
-bun run format:check
 bun run test:coverage
 ```
 

@@ -52,8 +52,6 @@ Run `/packages` in a session to open the package list:
 ```bash
 bun install
 bun run typecheck
-bun run lint
-bun run format:check
 bun run test:coverage
 ```
 
