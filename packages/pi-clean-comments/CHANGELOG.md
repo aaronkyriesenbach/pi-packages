@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.8.0...pi-clean-comments-v0.9.0) (2026-11-08)
+
+
+### Features
+
+* add lint/format hooks ([be7e4f9](https://github.com/aaronkyriesenbach/pi-packages/commit/be7e4f97c75eb0f9e5eaa9edab5470f3f27c9b4d))
+* enable timeout for comment exception tool ([9e29dfe](https://github.com/aaronkyriesenbach/pi-packages/commit/9e29dfeeb979d3ae1574bfb9f1e7448511390eea))
+
 ## [0.8.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.7.0...pi-clean-comments-v0.8.0) (2026-11-07)
 
 
