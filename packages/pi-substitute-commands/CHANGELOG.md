@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-substitute-commands-v1.2.0...pi-substitute-commands-v1.3.0) (2026-11-08)
+
+
+### Features
+
+* add lint/format hooks ([be7e4f9](https://github.com/aaronkyriesenbach/pi-packages/commit/be7e4f97c75eb0f9e5eaa9edab5470f3f27c9b4d))
+
 ## [1.2.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-substitute-commands-v1.1.0...pi-substitute-commands-v1.2.0) (2026-11-07)
 
 

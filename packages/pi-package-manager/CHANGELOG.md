@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.6.0...pi-package-manager-v0.7.0) (2026-11-08)
+
+
+### Features
+
+* add lint/format hooks ([be7e4f9](https://github.com/aaronkyriesenbach/pi-packages/commit/be7e4f97c75eb0f9e5eaa9edab5470f3f27c9b4d))
+
 ## [0.6.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-package-manager-v0.5.0...pi-package-manager-v0.6.0) (2026-11-07)
 
 
