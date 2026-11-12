@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.9.0...pi-clean-comments-v0.10.0) (2026-11-12)
+
+
+### Features
+
+* support nix, tf, fish, conf, ini comments ([a06827d](https://github.com/aaronkyriesenbach/pi-packages/commit/a06827dc66d94b978f7ee58cac64e511afa1718f))
+
 ## [0.9.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.8.0...pi-clean-comments-v0.9.0) (2026-11-08)
 
 
