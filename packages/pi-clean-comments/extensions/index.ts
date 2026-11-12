@@ -62,10 +62,15 @@ export const COMMENT_TOKENS: Record<string, string[]> = {
   sh: ['#'],
   bash: ['#'],
   zsh: ['#'],
+  fish: ['#'],
   ps1: ['#'],
   yaml: ['#'],
   yml: ['#'],
   toml: ['#'],
+  nix: ['#'],
+  tf: ['#', '//'],
+  conf: ['#'],
+  ini: ['#', ';'],
   pl: ['#'],
   r: ['#'],
   ex: ['#'],
@@ -115,6 +120,8 @@ export const BLOCK_COMMENT_TOKENS: Record<string, BlockCommentDelimiters> = {
   m: { open: '/*', close: '*/' },
   php: { open: '/*', close: '*/' },
   sql: { open: '/*', close: '*/' },
+  nix: { open: '/*', close: '*/' },
+  tf: { open: '/*', close: '*/' },
 };
 
 export function getBlockCommentDelimiters(filePath: string): BlockCommentDelimiters | undefined {

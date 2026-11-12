@@ -72,6 +72,11 @@ describe('getCommentTokens', () => {
     expect(getCommentTokens('foo.php')).toEqual(['//', '#']);
     expect(getCommentTokens('foo.dart')).toEqual(['//']);
     expect(getCommentTokens('foo.ps1')).toEqual(['#']);
+    expect(getCommentTokens('foo.nix')).toEqual(['#']);
+    expect(getCommentTokens('main.tf')).toEqual(['#', '//']);
+    expect(getCommentTokens('foo.fish')).toEqual(['#']);
+    expect(getCommentTokens('foo.conf')).toEqual(['#']);
+    expect(getCommentTokens('foo.ini')).toEqual(['#', ';']);
   });
 
   it('is case-insensitive on the extension', () => {
@@ -374,6 +379,8 @@ const BLOCK_COMMENT_EXTENSIONS = [
   'm',
   'php',
   'sql',
+  'nix',
+  'tf',
 ];
 
 describe('BLOCK_COMMENT_TOKENS', () => {
@@ -383,7 +390,7 @@ describe('BLOCK_COMMENT_TOKENS', () => {
     }
   });
 
-  it('registers `/* */` for exactly the 23 documented extensions', () => {
+  it('registers `/* */` for exactly the 25 documented extensions', () => {
     expect(Object.keys(BLOCK_COMMENT_TOKENS).sort()).toEqual(BLOCK_COMMENT_EXTENSIONS.sort());
     for (const ext of BLOCK_COMMENT_EXTENSIONS) {
       expect(BLOCK_COMMENT_TOKENS[ext]).toEqual({ open: '/*', close: '*/' });
@@ -1167,7 +1174,7 @@ describe('findBlockedBashWriteTarget', () => {
     ['a python write to an extension with no comment syntax', `python3 -c "open('a.md', 'w')"`],
     ['a python write outside the project', `python3 -c "open('/tmp/a.ts', 'w')"`],
     ['a python read', `python3 -c "print(open('a.ts').read())"`],
-  ])('allows %s', (_label, command) => {
+  ])('allows %s', (_label: string, command: string) => {
     expect(findBlockedBashWriteTarget(command, CWD)).toBeUndefined();
   });
 
