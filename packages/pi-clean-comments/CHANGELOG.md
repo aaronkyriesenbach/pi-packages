@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.10.0...pi-clean-comments-v0.11.0) (2026-11-23)
+
+
+### Features
+
+* support Dockerfile, Justfile and other filename-matched comments ([cfeb243](https://github.com/aaronkyriesenbach/pi-packages/commit/cfeb2439fb1850a4075be76f71cec1f88ef42329))
+
 ## [0.10.0](https://github.com/aaronkyriesenbach/pi-packages/compare/pi-clean-comments-v0.9.0...pi-clean-comments-v0.10.0) (2026-11-12)
 
 
