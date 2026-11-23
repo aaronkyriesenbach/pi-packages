@@ -12,6 +12,12 @@ import {
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { findBashFileWriteTargets } from './bash-file-writes.js';
+import {
+  type FunctionalCommentRule,
+  getFilenameCommentTokens,
+  getFunctionalCommentRule,
+  isFunctionalComment,
+} from './comment-syntax.js';
 import { resolveCleanCommentsConfig } from './config.js';
 import { createRequestCommentExceptionTool } from './request-comment-exception.js';
 
@@ -82,11 +88,13 @@ export const COMMENT_TOKENS: Record<string, string[]> = {
   clj: [';'],
   cljs: [';'],
   el: [';'],
+  mk: ['#'],
+  just: ['#'],
 };
 
 export function getCommentTokens(filePath: string): string[] | undefined {
   const ext = path.extname(filePath).slice(1).toLowerCase();
-  return COMMENT_TOKENS[ext];
+  return getFilenameCommentTokens(filePath) ?? COMMENT_TOKENS[ext];
 }
 
 export interface BlockCommentDelimiters {
@@ -200,21 +208,32 @@ export function extractAddedLines(patch: string): PatchLine[] {
 }
 
 /** Filter patch lines down to added comment lines, tagged with their line number. */
-export function findAddedCommentHits(patchLines: PatchLine[], tokens: string[]): CommentHit[] {
+export function findAddedCommentHits(
+  patchLines: PatchLine[],
+  tokens: string[],
+  functionalRule?: FunctionalCommentRule,
+): CommentHit[] {
   const hits: CommentHit[] = [];
   for (const { lineNumber, text } of patchLines) {
     if (isShebang(text, lineNumber - 1)) continue;
+    if (isFunctionalComment(text, lineNumber - 1, functionalRule)) continue;
     if (isCommentLine(text, tokens)) hits.push({ line: lineNumber, text: text.trim() });
   }
   return hits;
 }
 
 /** Filter whole-file lines down to comment lines, tagged with their line number. */
-export function findCommentHits(lines: string[], tokens: string[]): CommentHit[] {
+export function findCommentHits(
+  lines: string[],
+  tokens: string[],
+  functionalRule?: FunctionalCommentRule,
+): CommentHit[] {
   const hits: CommentHit[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line === undefined || isShebang(line, i)) continue;
+    if (line === undefined || isShebang(line, i) || isFunctionalComment(line, i, functionalRule)) {
+      continue;
+    }
     if (isCommentLine(line, tokens)) hits.push({ line: i + 1, text: line.trim() });
   }
   return hits;
@@ -398,10 +417,11 @@ async function findEditCommentHits(
   tokens: string[],
   blockDelimiters: BlockCommentDelimiters | undefined,
 ): Promise<CommentHit[]> {
-  if (!blockDelimiters) return findAddedCommentHits(patchLines, tokens);
+  const functionalRule = getFunctionalCommentRule(filePath);
+  if (!blockDelimiters) return findAddedCommentHits(patchLines, tokens, functionalRule);
 
   const content = await readFileContentOrUndefined(filePath);
-  if (content === undefined) return findAddedCommentHits(patchLines, tokens);
+  if (content === undefined) return findAddedCommentHits(patchLines, tokens, functionalRule);
 
   const addedLineNumbers = new Set(patchLines.map((line) => line.lineNumber));
   const allHits = findBlockAwareCommentHits(content.split('\n'), tokens, blockDelimiters);
@@ -427,7 +447,7 @@ export function stripOverThresholdBlocks(
   const blockDelimiters = getBlockCommentDelimiters(filePath);
   const hits = blockDelimiters
     ? findBlockAwareCommentHits(lines, tokens, blockDelimiters)
-    : findCommentHits(lines, tokens);
+    : findCommentHits(lines, tokens, getFunctionalCommentRule(filePath));
   const strippedBlocks = groupCommentBlocks(hits).filter((block) => block.lines.length > threshold);
   if (strippedBlocks.length === 0) return { content, strippedBlocks: [] };
 
@@ -560,7 +580,7 @@ function writeNudgeNote(event: ToolResultEvent): string | undefined {
   const blockDelimiters = getBlockCommentDelimiters(filePath);
   const hits = blockDelimiters
     ? findBlockAwareCommentHits(lines, tokens, blockDelimiters)
-    : findCommentHits(lines, tokens);
+    : findCommentHits(lines, tokens, getFunctionalCommentRule(filePath));
   if (hits.length === 0) return undefined;
 
   return messageFor(filePath, hits);

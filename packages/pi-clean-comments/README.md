@@ -55,6 +55,26 @@ File extensions with no registered block delimiter (Python, YAML, shell,
 Ruby, etc.) are unaffected and keep the exact line-token-only behavior
 they've always had.
 
+### Files recognized by name
+
+Some files have no extension (`Dockerfile`, `Makefile`, `Justfile`) or are
+dotfiles (`.gitignore`, `.env`), which `path.extname` can't key on. These
+are matched by filename first (see `extensions/comment-syntax.ts`), then by
+extension: the Docker family (`Dockerfile`, `Dockerfile.*`, `*.Dockerfile`,
+`Containerfile`, `.dockerignore`), `Makefile`/`*.mk`, `Justfile`/`*.just`,
+`Vagrantfile`, `Gemfile`, `Rakefile`, `Jenkinsfile`, and shell/git/npm
+dotfiles. Matching is case-insensitive.
+
+A few comment-shaped lines are functional, so they are never nudged or
+stripped, the same way a shebang is skipped:
+
+- **Dockerfile parser directives** (`# syntax=`, `# escape=`, `# check=`)
+  on the first three lines. They're only honored before any other comment,
+  blank line or instruction, and each key can appear once, so a later
+  match is an ordinary comment.
+- **Justfile recipe shebangs** (an indented `#!/usr/bin/env bash`), which
+  pick the interpreter for the recipe body.
+
 ## Configuration
 
 Config is resolved per project from `<cwd>/.pi/pi-clean-comments.json`,
@@ -100,12 +120,12 @@ default), a `bash` call is rejected, unrun and unmodified, when:
   calls a file-write API (`open(…, 'w')`, `Path.write_text`,
   `fs.writeFileSync`, `File.write`, …),
 
-and the target's extension has registered comment syntax. Script targets
-are every path-like string literal in the command (`'src/a.ts'`), since the
+and the target's filename or extension has registered comment syntax. Script targets
+are every path-like string literal in the command (`'src/a.ts'`, `'Dockerfile'`), since the
 write call usually takes a variable. The agent is told to resubmit through
 `write`/`edit`.
 
-Allowed through: unknown extensions (`.md`, `.json`, none), targets the
+Allowed through: unknown names and extensions (`.md`, `.json`, `LICENSE`), targets the
 scan can't resolve (`$VAR`, `$(…)`, `~/…`, `sys.argv`), paths outside the
 project, and heredocs that aren't file writes (`git commit -m "$(cat <<EOF …)"`,
 `kubectl apply -f - <<EOF`). Scripts that read one source file and write an

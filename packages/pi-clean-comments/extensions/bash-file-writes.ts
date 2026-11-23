@@ -1,3 +1,5 @@
+import { getFilenameCommentTokens } from './comment-syntax.js';
+
 interface InterpreterWriteRule {
   interpreter: RegExp;
   writes: RegExp[];
@@ -95,10 +97,18 @@ const INTERPRETER_WRITE_RULES: InterpreterWriteRule[] = [
 const STRING_LITERALS = [/'([^'\n]*)'/g, /"([^"\n]*)"/g, /`([^`\n]*)`/g];
 
 const PATH_LITERAL = /^(?![a-z][a-z\d+.-]*:\/\/)[^\s*?<>|{}]+\.[A-Za-z][\w]*$/i;
+const BARE_PATH_LITERAL = /^(?![a-z][a-z\d+.-]*:\/\/)[^\s*?<>|{}()'"`]+$/i;
+
+function isPathLiteral(literal: string): boolean {
+  return (
+    PATH_LITERAL.test(literal) ||
+    (BARE_PATH_LITERAL.test(literal) && getFilenameCommentTokens(literal) !== undefined)
+  );
+}
 
 function findPathLiterals(command: string): string[] {
   return STRING_LITERALS.flatMap((pattern) => [...command.matchAll(pattern)])
-    .filter((match) => PATH_LITERAL.test(match[1] ?? ''))
+    .filter((match) => isPathLiteral(match[1] ?? ''))
     .sort((a, b) => a.index - b.index)
     .map((match) => match[1] ?? '');
 }

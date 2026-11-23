@@ -79,6 +79,10 @@ describe('findInterpreterFileTargets', () => {
     ['node -e "fs.createWriteStream(`a.ts`)"', ['a.ts']],
     [`ruby -e "File.write('a.rb', 'x')"`, ['a.rb']],
     [`ruby -e "File.open('a.rb', 'w') { |f| f << 1 }"`, ['a.rb']],
+    [`python3 -c "open('Dockerfile', 'w').write('x')"`, ['Dockerfile']],
+    [`python3 -c "Path('svc/Dockerfile.dev').write_text('x')"`, ['svc/Dockerfile.dev']],
+    [`node -e "fs.writeFileSync('Justfile', 'x')"`, ['Justfile']],
+    [`node -e "fs.writeFileSync('.gitignore', 'x')"`, ['.gitignore']],
   ])('finds the path literals in %j', (command, expected) => {
     expect(findInterpreterFileTargets(command)).toEqual(expected);
   });
@@ -106,6 +110,10 @@ describe('findInterpreterFileTargets', () => {
     ['a url literal', `python3 -c "open(p, 'w'); u = 'https://example.com/a.ts'"`],
     ['a glob literal', `python3 -c "open(p, 'w'); g = 'src/*.ts'"`],
     ['a non-path literal', `python3 -c "open(p, 'w'); s = 'hello world.'"`],
+    [
+      'a bare word that is not a known filename',
+      `python3 -c "open(p, 'w'); s = 'Dockerfile-notes'"`,
+    ],
     ['pytest', 'python3 -m pytest tests/test_a.py'],
   ])('finds nothing for %s', (_label, command) => {
     expect(findInterpreterFileTargets(command)).toEqual([]);

@@ -18,6 +18,11 @@ pair and may span multiple lines (e.g. `/* ... */`). Not limited to
 C-style delimiters — the term also covers other open/close pairs (e.g.
 Lua's `--[[ ]]`, HTML's `<!-- -->`).
 
+**Functional comment**:
+A comment-shaped line that changes how the file is interpreted (a shebang,
+a Dockerfile parser directive, a Justfile recipe shebang). Never nudged or
+stripped, since removing it would break the file.
+
 ### Enforcement
 
 **Nudge (mode)**:
@@ -47,7 +52,7 @@ _Avoid_: exception request, override.
 A `bash` call that writes a file other than through `write`/`edit`: either a
 heredoc sent into a file via `>`, `>>` or `tee`, or an inline interpreter
 script (Python, Node, Ruby) that calls a file-write API. Blocked (not parsed
-or rewritten) when a target's extension has registered comment syntax, so the
+or rewritten) when a target's filename or extension has registered comment syntax, so the
 content is resubmitted through `write`/`edit`.
 _Avoid_: shell write, heredoc file write.
 

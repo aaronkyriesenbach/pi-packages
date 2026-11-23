@@ -23,6 +23,7 @@ vi.mock('node:fs/promises', () => ({
   }),
 }));
 
+import { getFunctionalCommentRule } from '../extensions/comment-syntax.js';
 import { getProjectConfigPath } from '../extensions/config.js';
 import defaultExport, {
   appendNote,
@@ -87,8 +88,36 @@ describe('getCommentTokens', () => {
     expect(getCommentTokens('foo.unknown')).toBeUndefined();
   });
 
-  it('returns undefined for a file with no extension', () => {
-    expect(getCommentTokens('Makefile')).toBeUndefined();
+  it('returns undefined for a file with no extension and no known name', () => {
+    expect(getCommentTokens('LICENSE')).toBeUndefined();
+  });
+
+  it.each([
+    ['Dockerfile', ['#']],
+    ['services/api/Dockerfile', ['#']],
+    ['Dockerfile.dev', ['#']],
+    ['api.Dockerfile', ['#']],
+    ['dockerfile', ['#']],
+    ['Containerfile', ['#']],
+    ['.dockerignore', ['#']],
+    ['Makefile', ['#']],
+    ['rules.mk', ['#']],
+    ['Justfile', ['#']],
+    ['justfile', ['#']],
+    ['.justfile', ['#']],
+    ['mod.just', ['#']],
+    ['Jenkinsfile', ['//']],
+    ['.gitignore', ['#']],
+    ['.env', ['#']],
+    ['.env.local', ['#']],
+    ['.npmrc', ['#', ';']],
+  ])('resolves comment tokens by filename for %s', (filePath, expected) => {
+    expect(getCommentTokens(filePath)).toEqual(expected);
+  });
+
+  it('does not match names that merely contain a known name', () => {
+    expect(getCommentTokens('Dockerfile-notes')).toBeUndefined();
+    expect(getCommentTokens('my-justfile-notes')).toBeUndefined();
   });
 });
 
@@ -147,6 +176,34 @@ describe('findCommentHits', () => {
   it('returns an empty array for an empty line list', () => {
     expect(findCommentHits([], ['//'])).toEqual([]);
   });
+
+  it('skips Dockerfile parser directives on the first three lines only', () => {
+    const lines = [
+      '# syntax=docker/dockerfile:1',
+      '# escape=`',
+      '# check=error=true',
+      '# check=skip=all',
+      'FROM node',
+    ];
+    expect(findCommentHits(lines, ['#'], getFunctionalCommentRule('Dockerfile'))).toEqual([
+      { line: 4, text: '# check=skip=all' },
+    ]);
+  });
+
+  it('flags a directive-shaped line in a file that is not a Dockerfile', () => {
+    const lines = ['# syntax=docker/dockerfile:1'];
+    expect(findCommentHits(lines, ['#'], getFunctionalCommentRule('ci.yaml'))).toEqual([
+      { line: 1, text: '# syntax=docker/dockerfile:1' },
+    ]);
+  });
+
+  it('skips Justfile recipe shebangs at any position but flags ordinary comments', () => {
+    const lines = ['# build it', 'build:', '    #!/usr/bin/env bash', '    # why'];
+    expect(findCommentHits(lines, ['#'], getFunctionalCommentRule('Justfile'))).toEqual([
+      { line: 1, text: '# build it' },
+      { line: 4, text: '# why' },
+    ]);
+  });
 });
 
 describe('extractAddedLines', () => {
@@ -198,6 +255,16 @@ describe('findAddedCommentHits', () => {
   it("skips a shebang added as the file's first line", () => {
     const patchLines = [{ lineNumber: 1, text: '#!/usr/bin/env node' }];
     expect(findAddedCommentHits(patchLines, ['#'])).toEqual([]);
+  });
+
+  it('skips an added Dockerfile parser directive but flags an ordinary comment', () => {
+    const patchLines = [
+      { lineNumber: 1, text: '# syntax=docker/dockerfile:1' },
+      { lineNumber: 6, text: '# check=skip=all' },
+    ];
+    expect(findAddedCommentHits(patchLines, ['#'], getFunctionalCommentRule('Dockerfile'))).toEqual(
+      [{ line: 6, text: '# check=skip=all' }],
+    );
   });
 });
 
@@ -887,6 +954,12 @@ describe('stripOverThresholdBlocks', () => {
     expect(stripOverThresholdBlocks('foo.unknown', '// x', 2)).toBeUndefined();
   });
 
+  it('strips comments from a Dockerfile but keeps its parser directive', () => {
+    const content = ['# syntax=docker/dockerfile:1', '# why', 'FROM node'].join('\n');
+    const result = stripOverThresholdBlocks('Dockerfile', content, 0);
+    expect(result?.content).toBe(['# syntax=docker/dockerfile:1', 'FROM node'].join('\n'));
+  });
+
   it('strips a block whose line count exceeds the threshold', () => {
     const content = ['// 1', '// 2', '// 3', 'const x = 1;'].join('\n');
     const result = stripOverThresholdBlocks('foo.ts', content, 2);
@@ -1162,7 +1235,7 @@ describe('findBlockedBashWriteTarget', () => {
 
   it.each([
     ['an extension with no comment syntax', 'cat > README.md <<EOF\nhi\nEOF'],
-    ['no extension', 'cat > Makefile <<EOF\nall:\nEOF'],
+    ['no extension and no known name', 'cat > LICENSE <<EOF\nMIT\nEOF'],
     ['a variable path', 'cat > "$OUT/x.yaml" <<EOF\na: 1\nEOF'],
     ['a command-substitution path', 'cat > $(mktemp).yaml <<EOF\na: 1\nEOF'],
     ['a path outside the project', 'cat > /tmp/x.yaml <<EOF\na: 1\nEOF'],
@@ -1176,6 +1249,19 @@ describe('findBlockedBashWriteTarget', () => {
     ['a python read', `python3 -c "print(open('a.ts').read())"`],
   ])('allows %s', (_label: string, command: string) => {
     expect(findBlockedBashWriteTarget(command, CWD)).toBeUndefined();
+  });
+
+  it('blocks heredoc writes to extensionless and dotfile targets', () => {
+    expect(findBlockedBashWriteTarget('cat > Dockerfile <<EOF\nFROM x\nEOF', CWD)).toBe(
+      'Dockerfile',
+    );
+    expect(findBlockedBashWriteTarget('cat > .gitignore <<EOF\nx\nEOF', CWD)).toBe('.gitignore');
+  });
+
+  it('blocks an inline script that writes a Dockerfile', () => {
+    expect(findBlockedBashWriteTarget(`python3 -c "open('Dockerfile', 'w')"`, CWD)).toBe(
+      'Dockerfile',
+    );
   });
 
   it('returns a project file target written by an inline interpreter script', () => {
